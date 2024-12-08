@@ -2,18 +2,11 @@
 
 MCP Server that can connect to a Kubernetes cluster and manage it.
 
-## How to run tests locally
-
-```bash
-git clone https://github.com/Flux159/mcp-server-kubernetes.git
-cd mcp-server-kubernetes
-bun install
-bun run test
-```
+https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 
 ## Usage with Claude Desktop
 
-Clone the repo, install the dependencies, and build the dist folder:
+Clone the repo, install the dependencies, and build the dist folder (can use `node` or `bun` if you want to build locally):
 
 ```
 bun run build
@@ -55,6 +48,16 @@ You can verify your connection by asking Claude to list your pods or create a te
 - [] Get logs from a pod for debugging
 - [] Choose namespace for next commands (memory)
 - [] Support Helm for installing charts
+
+
+## How to run tests locally
+
+```bash
+git clone https://github.com/Flux159/mcp-server-kubernetes.git
+cd mcp-server-kubernetes
+bun install
+bun run test
+```
 
 ## Not planned
 
