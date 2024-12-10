@@ -6,22 +6,12 @@ https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 
 ## Usage with Claude Desktop
 
-Clone the repo, install the dependencies, and build the dist folder (can use `node` or `bun` if you want to build locally):
-
-```
-bun run build
-```
-
-To use this server with the Claude Desktop app, add the following configuration to the "mcpServers" section of your `claude_desktop_config.json`:
-
-Note that you can use `node` or `bun` to run the server. Tests will currently only run properly with bun at the moment though.
-
 ```json
 {
   "mcpServers": {
     "kubernetes": {
-      "command": "bun",
-      "args": ["/your/path/to/mcp-server-kubernetes/dist/index.js"]
+      "command": "npx",
+      "args": ["mcp-server-kubernetes"]
     }
   }
 }
@@ -34,6 +24,8 @@ The server will automatically connect to your current kubectl context. Make sure
 3. Access to a Kubernetes cluster configured for kubectl (e.g. minikube, Rancher Desktop, GKE, etc.)
 
 You can verify your connection by asking Claude to list your pods or create a test deployment.
+
+If you have errors, open up a standard terminal and run `kubectl get pods` to see if you can connect to your cluster without credentials issues.
 
 ## Features
 
@@ -49,8 +41,7 @@ You can verify your connection by asking Claude to list your pods or create a te
 - [] Choose namespace for next commands (memory)
 - [] Support Helm for installing charts
 
-
-## How to run tests locally
+## Development & Testing
 
 ```bash
 git clone https://github.com/Flux159/mcp-server-kubernetes.git
