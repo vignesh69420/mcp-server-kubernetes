@@ -38,10 +38,14 @@ If you have errors, open up a standard terminal and run `kubectl get pods` to se
 - [x] Create a pod
 - [x] Delete a pod
 - [x] List all namespaces
-- [] Port forward to a pod
-- [] Get logs from a pod for debugging
-- [] Choose namespace for next commands (memory)
-- [] Support Helm for installing charts
+- [ ] Port forward to a pod
+- [ ] Get logs from a pod for debugging
+- [ ] Choose namespace for next commands (memory)
+- [ ] Support Helm for installing charts
+
+## In Progress
+
+- [ ] [Docker support](https://github.com/Flux159/mcp-server-kubernetes/pull/9)
 
 ## Development & Testing
 
