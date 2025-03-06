@@ -76,12 +76,19 @@ bun run test
 bun run build
 ```
 
+4. Local Testing with [Inspector](https://github.com/modelcontextprotocol/inspector)
+
+```bash
+npx @modelcontextprotocol/inspector node build/index.js
+# Follow further instructions on terminal for Inspector link
+```
+
 ### Project Structure
 
 ```
 src/
-├── index.ts    # Main server implementation
-├── types.ts    # TypeScript type definitions
+├── index.ts     # Main server implementation
+├── types.ts     # TypeScript type definitions
 └── unit.test.ts # Unit tests
 ```
 
@@ -134,54 +141,6 @@ sequenceDiagram
 
     Server-->>Transport: Send Response
     Transport-->>Client: Return Final Response
-```
-
-### Component Structure
-
-The component diagram below shows how different parts of the system interact:
-
-```mermaid
-flowchart TB
-    subgraph Client["MCP Client Application"]
-        direction TB
-        ClientApp[Application]
-        ClientSDK["@modelcontextprotocol/sdk/client"]
-    end
-
-    subgraph MCP["MCP Server Components"]
-        direction TB
-        Transport[StdioServerTransport]
-        Server[Server]
-        Tools[Tools Handler]
-        Resources[Resource Handler]
-        K8sManager[KubernetesManager]
-
-        Transport --> Server
-        Server --> Tools & Resources
-        Tools & Resources --> K8sManager
-    end
-
-    subgraph External["External Systems"]
-        direction TB
-        K8sClient["@kubernetes/client-node"]
-        K8sAPI[Kubernetes API]
-    end
-
-    ClientApp --> ClientSDK
-    ClientSDK <--> |STDIO| Transport
-    K8sManager --> K8sClient
-    K8sClient --> K8sAPI
-
-    classDef client fill:#1B5E20,stroke:#0A2A0A,stroke-width:2px,color:#FFFFFF
-    classDef mcp fill:#2E6EA6,stroke:#173353,stroke-width:2px,color:#FFFFFF
-    classDef external fill:#4A235A,stroke:#241A2C,stroke-width:2px,color:#FFFFFF
-
-    class ClientApp,ClientSDK client
-    class Transport,Server,Tools,Resources,K8sManager mcp
-    class K8sClient,K8sAPI external
-    class Client client
-    class MCP mcp
-    class External external
 ```
 
 ## Not planned
