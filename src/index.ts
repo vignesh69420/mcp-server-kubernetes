@@ -10,11 +10,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import * as k8s from "@kubernetes/client-node";
-import {
-  ResourceTracker,
-  PortForwardTracker,
-  WatchTracker,
-} from "./types.js";
+import { ResourceTracker, PortForwardTracker, WatchTracker } from "./types.js";
 
 class KubernetesManager {
   private resources: ResourceTracker[] = [];
@@ -330,7 +326,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "describe_pod",
-        description: "Describe a Kubernetes pod (read details like status, containers, etc.)",
+        description:
+          "Describe a Kubernetes pod (read details like status, containers, etc.)",
         inputSchema: {
           type: "object",
           properties: {
@@ -575,17 +572,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const { body } = await k8sManager
             .getCoreApi()
-            .readNamespacedPod(describePodInput.name, describePodInput.namespace);
+            .readNamespacedPod(
+              describePodInput.name,
+              describePodInput.namespace
+            );
 
           if (!body) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: "Pod not found",
-                    status: "not_found"
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: "Pod not found",
+                      status: "not_found",
+                    },
+                    null,
+                    2
+                  ),
                 },
               ],
               isError: true,
@@ -602,7 +606,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               labels: body.metadata?.labels,
             },
             spec: {
-              containers: body.spec?.containers.map(container => ({
+              containers: body.spec?.containers.map((container) => ({
                 name: container.name,
                 image: container.image,
                 ports: container.ports,
@@ -614,7 +618,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               phase: body.status?.phase,
               conditions: body.status?.conditions,
               containerStatuses: body.status?.containerStatuses,
-            }
+            },
           };
 
           return {
@@ -631,10 +635,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: "Pod not found",
-                    status: "not_found"
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: "Pod not found",
+                      status: "not_found",
+                    },
+                    null,
+                    2
+                  ),
                 },
               ],
               isError: true,
@@ -642,7 +650,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
           throw new McpError(
             ErrorCode.InternalError,
-            `Failed to describe pod: ${error.response?.body?.message || error.message}`
+            `Failed to describe pod: ${
+              error.response?.body?.message || error.message
+            }`
           );
         }
       }
@@ -673,7 +683,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: "text",
               text: JSON.stringify(
                 {
-                  nodes: body.items
+                  nodes: body.items,
                 },
                 null,
                 2
@@ -738,8 +748,11 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
     const parts = uri.replace("k8s://", "").split("/");
 
-    if ((parts[0] === "namespaces" || parts[0] === "nodes") && parts.length === 1) {
-      const { body } = await k8sManager.getCoreApi()[parts[0] === "nodes" ? "listNode" : "listNamespace"]();
+    const isNamespaces = parts[0] === "namespaces";
+    const isNodes = parts[0] === "nodes";
+    if ((isNamespaces || isNodes) && parts.length === 1) {
+      const fn = isNodes ? "listNode" : "listNamespace";
+      const { body } = await k8sManager.getCoreApi()[fn]();
       return {
         contents: [
           {
