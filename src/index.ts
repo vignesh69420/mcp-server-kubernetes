@@ -348,6 +348,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {},
         },
       },
+      {
+        name: "list_nodes",
+        description: "List all nodes in the cluster",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
     ],
   };
 });
@@ -657,6 +665,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case "list_nodes": {
+        const { body } = await k8sManager.getCoreApi().listNode();
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  nodes: body.items
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
       default:
         throw new McpError(ErrorCode.InvalidRequest, `Unknown tool: ${name}`);
     }
@@ -697,6 +723,12 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         mimeType: "application/json",
         description: "List of all namespaces",
       },
+      {
+        uri: "k8s://nodes",
+        name: "Kubernetes Nodes",
+        mimeType: "application/json",
+        description: "List of all nodes in the cluster",
+      },
     ],
   };
 });
@@ -706,8 +738,8 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
     const parts = uri.replace("k8s://", "").split("/");
 
-    if (parts[0] === "namespaces" && parts.length === 1) {
-      const { body } = await k8sManager.getCoreApi().listNamespace();
+    if ((parts[0] === "namespaces" || parts[0] === "nodes") && parts.length === 1) {
+      const { body } = await k8sManager.getCoreApi()[parts[0] === "nodes" ? "listNode" : "listNamespace"]();
       return {
         contents: [
           {
