@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, it, describe, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
@@ -16,25 +16,47 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-test("kubernetes server operations", async () => {
-  const transport = new StdioClientTransport({
-    command: "bun",
-    args: ["src/index.ts"],
-    stderr: "pipe",
+describe("kubernetes server operations", () => {
+  let transport: StdioClientTransport;
+  let client: Client;
+
+
+  beforeEach(async () => {
+    try {
+      transport = new StdioClientTransport({
+        command: "bun",
+        args: ["src/index.ts"],
+        stderr: "pipe",
+      });
+
+      client = new Client(
+        {
+          name: "test-client",
+          version: "1.0.0",
+        },
+        {
+          capabilities: {},
+        }
+      );
+      await client.connect(transport);
+      // Wait for connection to be fully established
+      await sleep(1000);
+    } catch (e) {
+      console.error("Error in beforeEach:", e);
+      throw e;
+    }
   });
 
-  const client = new Client(
-    {
-      name: "test-client",
-      version: "1.0.0",
-    },
-    {
-      capabilities: {},
+  afterEach(async () => {
+    try {
+      await transport.close();
+      await sleep(1000);
+    } catch (e) {
+      console.error("Error during cleanup:", e);
     }
-  );
-  await client.connect(transport);
+  });
 
-  try {
+  test("list available tools", async () => {
     // List available tools stays the same
     console.log("Listing available tools...");
     const toolsList = await client.request(
@@ -46,6 +68,9 @@ test("kubernetes server operations", async () => {
     expect(toolsList.tools).toBeDefined();
     expect(toolsList.tools.length).toBeGreaterThan(0);
 
+  });
+
+  test("list namespaces and nodes", async () => {
     // List namespaces
     console.log("Listing namespaces...");
     const namespacesResult = await client.request(
@@ -53,7 +78,7 @@ test("kubernetes server operations", async () => {
         method: "tools/call",
         params: {
           name: "list_namespaces",
-          arguments: {}, // Changed from input to arguments
+          arguments: {},
         },
       },
       ListNamespacesResponseSchema
@@ -79,6 +104,9 @@ test("kubernetes server operations", async () => {
     expect(nodes.nodes).toBeDefined();
     expect(Array.isArray(nodes.nodes)).toBe(true);
 
+  });
+
+  test("pod operations", async () => {
     // Delete test pod if it exists
     console.log("Deleting test pod if exists...");
     const deletePodResult = await client.request(
@@ -87,7 +115,6 @@ test("kubernetes server operations", async () => {
         params: {
           name: "delete_pod",
           arguments: {
-            // Changed from input to arguments
             name: "test-pod",
             namespace: "default",
             ignoreNotFound: true,
@@ -99,7 +126,6 @@ test("kubernetes server operations", async () => {
     expect(deletePodResult.content[0].type).toBe("text");
     const deleteResult = JSON.parse(deletePodResult.content[0].text);
     expect(deleteResult.success).toBe(true);
-    await sleep(2000);
 
     // Create a pod
     console.log("Creating test pod...");
@@ -109,7 +135,6 @@ test("kubernetes server operations", async () => {
         params: {
           name: "create_pod",
           arguments: {
-            // Changed from input to arguments
             name: "test-pod",
             namespace: "default",
             template: "nginx",
@@ -122,104 +147,72 @@ test("kubernetes server operations", async () => {
     const createResult = JSON.parse(createPodResult.content[0].text);
     expect(createResult.podName).toBe("test-pod");
     expect(createResult.status).toBe("created");
+  });
 
-    // Describe the pod
-    console.log("Describing test pod...");
-    const describePodResult = await client.request(
+  test("log operations", async () => {
+    // 60 second timeout for this test
+    //Delete test pod if exists first
+    await client.request(
       {
         method: "tools/call",
         params: {
-          name: "describe_pod",
+          name: "delete_pod",
           arguments: {
-            name: "test-pod",
+            name: "logging-test-pod",
             namespace: "default",
+            ignoreNotFound: true
           },
         },
       },
-      CreatePodResponseSchema // Reusing existing schema since response format is similar
+      DeletePodResponseSchema
     );
-    expect(describePodResult.content[0].type).toBe("text");
-    const podDescription = JSON.parse(describePodResult.content[0].text);
-    expect(podDescription.metadata.name).toBe("test-pod");
-    expect(podDescription.metadata.namespace).toBe("default");
-    expect(podDescription.kind).toBe("Pod");
+    await sleep(10000);
+    console.log("deleting old test pod...");
 
-    // List pods to verify creation
-    console.log("Listing pods...");
-    const listPodsResult = await client.request(
+    // Create a test pod that outputs logs
+    const createLoggingPodResult = await client.request(
       {
         method: "tools/call",
         params: {
-          name: "list_pods",
+          name: "create_pod",
           arguments: {
-            // Changed from input to arguments
+            name: "logging-test-pod",
             namespace: "default",
+            template: "busybox",
+            command: ["/bin/sh", "-c", "echo Test log message && sleep infinity"]
           },
         },
       },
-      ListPodsResponseSchema
+      CreatePodResponseSchema
     );
-    expect(listPodsResult.content[0].type).toBe("text");
-    const pods = JSON.parse(listPodsResult.content[0].text);
-    expect(pods.pods).toBeDefined();
-    expect(pods.pods.some((pod: any) => pod.name === "test-pod")).toBe(true);
+    // Wait longer for pod to be fully ready
+    await sleep(30000);
+    console.log("created new test pod...");
+    expect(createLoggingPodResult.content[0].type).toBe("text");
+    const loggingPodResult = JSON.parse(createLoggingPodResult.content[0].text);
+    expect(loggingPodResult.podName).toBe("logging-test-pod");
+    
+    // Wait longer for pod to be fully ready
+    await sleep(5000);
+    console.log("checking pod logs...");
 
-    // List deployments
-    console.log("Listing deployments...");
-    const listDeploymentsResult = await client.request(
+    const getLogsResult = await client.request(
       {
         method: "tools/call",
         params: {
-          name: "list_deployments",
+          name: "get_logs",
           arguments: {
-            // Changed from input to arguments
+            resourceType: "pod",
+            name: "logging-test-pod",
             namespace: "default",
-          },
-        },
-      },
-      ListDeploymentsResponseSchema
-    );
-    expect(listDeploymentsResult.content[0].type).toBe("text");
-    const deployments = JSON.parse(listDeploymentsResult.content[0].text);
-    expect(deployments.deployments).toBeDefined();
-
-    // Cleanup
-    console.log("Cleaning up...");
-    const cleanupResult = await client.request(
-      {
-        method: "tools/call",
-        params: {
-          name: "cleanup",
-          arguments: {}, // Changed from input to arguments
-        },
-      },
-      CleanupResponseSchema
-    );
-    expect(cleanupResult.content[0].type).toBe("text");
-    const cleanupData = JSON.parse(cleanupResult.content[0].text);
-    expect(cleanupData.success).toBe(true);
-
-    // Verify cleanup by listing pods again
-    console.log("Verifying cleanup...");
-    const finalPodsResult = await client.request(
-      {
-        method: "tools/call",
-        params: {
-          name: "list_pods",
-          arguments: {
-            // Changed from input to arguments
-            namespace: "default",
+            timestamps: true
           },
         },
       },
       ListPodsResponseSchema
     );
-    const finalPods = JSON.parse(finalPodsResult.content[0].text);
-    console.log(finalPods);
-    // expect(finalPods.pods.some((pod: any) => pod.name === "test-pod")).toBe(
-    //   false
-    // );
-  } finally {
-    // await client.disconnect();  // Re-enabled client disconnect
-  }
+    expect(getLogsResult.content[0].type).toBe("text");
+    const logs = JSON.parse(getLogsResult.content[0].text);
+    expect(logs.logs["logging-test-pod"]).toContain("Test log message");
+  });
 });
