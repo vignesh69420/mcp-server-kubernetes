@@ -1,3 +1,4 @@
+// Import required test frameworks and SDK components
 import { expect, test, it, describe, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -12,19 +13,39 @@ import {
   CleanupResponseSchema,
 } from "./types.js";
 
+/**
+ * Utility function to create a promise that resolves after specified milliseconds
+ * Useful for waiting between operations or ensuring async operations complete
+ */
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Generates a random SHA-like string for unique resource naming
+ * Used to avoid naming conflicts when creating test resources
+ */
 function generateRandomSHA(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
+/**
+ * Test suite for kubernetes server operations
+ * Tests the core functionality of kubernetes operations including:
+ * - Listing available tools
+ * - Namespace and node operations
+ * - Pod lifecycle management (create, monitor, delete)
+ */
 describe("kubernetes server operations", () => {
   let transport: StdioClientTransport;
   let client: Client;
 
-
+  /**
+   * Set up before each test:
+   * - Creates a new StdioClientTransport instance
+   * - Initializes and connects the MCP client
+   * - Waits for connection to be established
+   */
   beforeEach(async () => {
     try {
       transport = new StdioClientTransport({
@@ -51,6 +72,11 @@ describe("kubernetes server operations", () => {
     }
   });
 
+  /**
+   * Clean up after each test:
+   * - Closes the transport connection
+   * - Waits to ensure clean shutdown
+   */
   afterEach(async () => {
     try {
       await transport.close();
@@ -60,6 +86,10 @@ describe("kubernetes server operations", () => {
     }
   });
 
+  /**
+   * Test case: Verify the availability of kubernetes tools
+   * Ensures that the server exposes the expected kubernetes operations
+   */
   test("list available tools", async () => {
     // List available tools stays the same
     console.log("Listing available tools...");
@@ -74,6 +104,10 @@ describe("kubernetes server operations", () => {
 
   });
 
+  /**
+   * Test case: Verify namespace and node listing functionality
+   * Tests both namespace and node listing operations in sequence
+   */
   test("list namespaces and nodes", async () => {
     // List namespaces
     console.log("Listing namespaces...");
@@ -110,6 +144,17 @@ describe("kubernetes server operations", () => {
 
   });
 
+  /**
+   * Test case: Complete pod lifecycle management
+   * Tests the full lifecycle of a pod including:
+   * 1. Cleanup of existing test pods
+   * 2. Creation of new test pod
+   * 3. Monitoring pod until running state
+   * 4. Verification of pod logs
+   * 5. Pod deletion and termination verification
+   * 
+   * Note: Test timeout is set to 90 seconds to accommodate all operations
+   */
   test("pod lifecycle management", async () => {
     const podBaseName = "unit-test";
     const podName = `${podBaseName}-${generateRandomSHA()}`;
