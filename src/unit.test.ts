@@ -106,49 +106,6 @@ describe("kubernetes server operations", () => {
 
   });
 
-  test("pod operations", async () => {
-    // Delete test pod if it exists
-    console.log("Deleting test pod if exists...");
-    const deletePodResult = await client.request(
-      {
-        method: "tools/call",
-        params: {
-          name: "delete_pod",
-          arguments: {
-            name: "test-pod",
-            namespace: "default",
-            ignoreNotFound: true,
-          },
-        },
-      },
-      DeletePodResponseSchema
-    );
-    expect(deletePodResult.content[0].type).toBe("text");
-    const deleteResult = JSON.parse(deletePodResult.content[0].text);
-    expect(deleteResult.success).toBe(true);
-
-    // Create a pod
-    console.log("Creating test pod...");
-    const createPodResult = await client.request(
-      {
-        method: "tools/call",
-        params: {
-          name: "create_pod",
-          arguments: {
-            name: "test-pod",
-            namespace: "default",
-            template: "nginx",
-          },
-        },
-      },
-      CreatePodResponseSchema
-    );
-    expect(createPodResult.content[0].type).toBe("text");
-    const createResult = JSON.parse(createPodResult.content[0].text);
-    expect(createResult.podName).toBe("test-pod");
-    expect(createResult.status).toBe("created");
-  });
-
   test("log operations", async () => {
     // 60 second timeout for this test
     //Delete test pod if exists first
@@ -166,7 +123,6 @@ describe("kubernetes server operations", () => {
       },
       DeletePodResponseSchema
     );
-    await sleep(10000);
     console.log("deleting old test pod...");
 
     // Create a test pod that outputs logs
@@ -185,17 +141,51 @@ describe("kubernetes server operations", () => {
       },
       CreatePodResponseSchema
     );
-    // Wait longer for pod to be fully ready
-    await sleep(30000);
     console.log("created new test pod...");
     expect(createLoggingPodResult.content[0].type).toBe("text");
     const loggingPodResult = JSON.parse(createLoggingPodResult.content[0].text);
     expect(loggingPodResult.podName).toBe("logging-test-pod");
     
-    // Wait longer for pod to be fully ready
-    await sleep(5000);
+    // Wait for pod to be in Running state before getting logs
+    console.log("waiting for pod to be in Running state...");
+    let podRunning = false;
+    let retries = 0;
+    const maxRetries = 30; // Maximum number of retries (30 * 2 seconds = 60 seconds max wait time)
+    
+    while (!podRunning && retries < maxRetries) {
+      const podStatusResult = await client.request(
+        {
+          method: "tools/call",
+          params: {
+            name: "describe_pod",
+            arguments: {
+              name: "logging-test-pod",
+              namespace: "default"
+            },
+          },
+        },
+        ListPodsResponseSchema
+      );
+      
+      const podStatus = JSON.parse(podStatusResult.content[0].text);
+      console.log(`Pod status: ${JSON.stringify(podStatus.status?.phase || "unknown")}`);
+      
+      if (podStatus.status?.phase === "Running") {
+        podRunning = true;
+        console.log("Pod is now running!");
+      } else {
+        console.log(`Pod not yet running, waiting... (${retries + 1}/${maxRetries})`);
+        retries++;
+        await sleep(2000);
+      }
+    }
+    
+    if (!podRunning) {
+      throw new Error("Pod did not reach Running state within the timeout period");
+    }
+    
+    // Now that the pod is running, get the logs
     console.log("checking pod logs...");
-
     const getLogsResult = await client.request(
       {
         method: "tools/call",

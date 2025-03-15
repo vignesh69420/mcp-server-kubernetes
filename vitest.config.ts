@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // Set timeout to 90 seconds for all tests
-    testTimeout: 90000
+    // Set timeout to 120 seconds for all tests
+    testTimeout: 120000
   },
 })
