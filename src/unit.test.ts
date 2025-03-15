@@ -1,16 +1,23 @@
 // Import required test frameworks and SDK components
-import { expect, test, it, describe, beforeAll, beforeEach, afterEach, vi } from "vitest";
+import {
+  expect,
+  test,
+  it,
+  describe,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  vi,
+} from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
   ListToolsResponseSchema,
   ListPodsResponseSchema,
-  ListDeploymentsResponseSchema,
   ListNamespacesResponseSchema,
   ListNodesResponseSchema,
   CreatePodResponseSchema,
   DeletePodResponseSchema,
-  CleanupResponseSchema,
 } from "./types.js";
 
 /**
@@ -101,7 +108,6 @@ describe("kubernetes server operations", () => {
     );
     expect(toolsList.tools).toBeDefined();
     expect(toolsList.tools.length).toBeGreaterThan(0);
-
   });
 
   /**
@@ -141,7 +147,6 @@ describe("kubernetes server operations", () => {
     const nodes = JSON.parse(listNodesResult.content[0].text);
     expect(nodes.nodes).toBeDefined();
     expect(Array.isArray(nodes.nodes)).toBe(true);
-
   });
 
   /**
@@ -152,13 +157,13 @@ describe("kubernetes server operations", () => {
    * 3. Monitoring pod until running state
    * 4. Verification of pod logs
    * 5. Pod deletion and termination verification
-   * 
-   * Note: Test timeout is set to 90 seconds to accommodate all operations
+   *
+   * Note: Test timeout is set to 120 seconds to accommodate all operations via vitest.config.ts
    */
   test("pod lifecycle management", async () => {
     const podBaseName = "unit-test";
     const podName = `${podBaseName}-${generateRandomSHA()}`;
-    
+
     // Step 1: Check if pods with unit-test prefix exist and terminate them if found
     const existingPods = await client.request(
       {
@@ -172,11 +177,12 @@ describe("kubernetes server operations", () => {
       },
       ListPodsResponseSchema
     );
-    
+
     const podsResponse = JSON.parse(existingPods.content[0].text);
-    const existingTestPods = podsResponse.items?.filter((pod: any) => 
-      pod.metadata?.name?.startsWith(podBaseName)
-    ) || [];
+    const existingTestPods =
+      podsResponse.items?.filter((pod: any) =>
+        pod.metadata?.name?.startsWith(podBaseName)
+      ) || [];
 
     // Terminate existing test pods if found
     for (const pod of existingTestPods) {
@@ -188,17 +194,17 @@ describe("kubernetes server operations", () => {
             arguments: {
               name: pod.metadata.name,
               namespace: "default",
-              ignoreNotFound: true
+              ignoreNotFound: true,
             },
           },
         },
         DeletePodResponseSchema
       );
-      
+
       // Wait for pod to be fully terminated
       let podDeleted = false;
       const terminationStartTime = Date.now();
-      
+
       while (!podDeleted && Date.now() - terminationStartTime < 10000) {
         try {
           await client.request(
@@ -208,9 +214,9 @@ describe("kubernetes server operations", () => {
                 name: "describe_pod",
                 arguments: {
                   name: pod.metadata.name,
-                  namespace: "default"
-                }
-              }
+                  namespace: "default",
+                },
+              },
             },
             ListPodsResponseSchema
           );
@@ -232,13 +238,13 @@ describe("kubernetes server operations", () => {
             name: podName,
             namespace: "default",
             template: "busybox",
-            command: ["/bin/sh", "-c", "echo Pod is running && sleep infinity"]
+            command: ["/bin/sh", "-c", "echo Pod is running && sleep infinity"],
           },
         },
       },
       CreatePodResponseSchema
     );
-    
+
     expect(createPodResult.content[0].type).toBe("text");
     const podResult = JSON.parse(createPodResult.content[0].text);
     expect(podResult.podName).toBe(podName);
@@ -246,7 +252,7 @@ describe("kubernetes server operations", () => {
     // Step 2: Wait for Running state (up to 60 seconds)
     let podRunning = false;
     const startTime = Date.now();
-    
+
     while (!podRunning && Date.now() - startTime < 60000) {
       const podStatus = await client.request(
         {
@@ -255,18 +261,18 @@ describe("kubernetes server operations", () => {
             name: "describe_pod",
             arguments: {
               name: podName,
-              namespace: "default"
+              namespace: "default",
             },
           },
         },
         ListPodsResponseSchema
       );
-      
+
       const status = JSON.parse(podStatus.content[0].text);
       if (status.status?.phase === "Running") {
         podRunning = true;
         console.log(`Pod ${podName} is running. Checking logs...`);
-        
+
         // Check pod logs once running
         const logsResult = await client.request(
           {
@@ -282,7 +288,7 @@ describe("kubernetes server operations", () => {
           },
           ListPodsResponseSchema
         );
-        
+
         expect(logsResult.content[0].type).toBe("text");
         const logs = JSON.parse(logsResult.content[0].text);
         expect(logs.logs[podName]).toContain("Pod is running");
@@ -290,7 +296,7 @@ describe("kubernetes server operations", () => {
       }
       await sleep(1000);
     }
-    
+
     expect(podRunning).toBe(true);
 
     // Step 3: Terminate pod and verify termination (wait up to 10 seconds)
@@ -326,13 +332,13 @@ describe("kubernetes server operations", () => {
                 name: "describe_pod",
                 arguments: {
                   name: podName,
-                  namespace: "default"
-                }
-              }
+                  namespace: "default",
+                },
+              },
             },
             ListPodsResponseSchema
           );
-          
+
           // Pod still exists, check if it's in Terminating state
           const status = JSON.parse(podStatus.content[0].text);
           if (status.status?.phase === "Terminating") {
@@ -346,16 +352,18 @@ describe("kubernetes server operations", () => {
           break;
         }
       }
-      
+
       // Log termination status but don't fail the test
       if (podTerminated) {
         console.log(`Pod ${podName} termination confirmed`);
       } else {
-        console.log(`Pod ${podName} termination could not be confirmed within timeout, but deletion was initiated`);
+        console.log(
+          `Pod ${podName} termination could not be confirmed within timeout, but deletion was initiated`
+        );
       }
     } catch (error) {
       // Ignore any errors during termination check
       console.log(`Error checking pod termination status: ${error}`);
     }
-  }, { timeout: 90000 }); // Set timeout to 90 seconds to account for all operations
+  });
 });
