@@ -68,7 +68,7 @@ bun run dev
 2. Run unit tests:
 
 ```bash
-bun  test src/unit.test.ts
+bun run test
 ```
 
 3. Build the project:

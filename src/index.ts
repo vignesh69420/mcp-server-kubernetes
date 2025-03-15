@@ -355,51 +355,53 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_logs",
-        description: "Get logs from pods, deployments, jobs, or resources matching a label selector",
+        description:
+          "Get logs from pods, deployments, jobs, or resources matching a label selector",
         inputSchema: {
           type: "object",
           properties: {
             resourceType: {
               type: "string",
               enum: ["pod", "deployment", "job"],
-              description: "Type of resource to get logs from"
+              description: "Type of resource to get logs from",
             },
             name: {
               type: "string",
-              description: "Name of the resource"
+              description: "Name of the resource",
             },
             namespace: {
               type: "string",
               description: "Namespace of the resource",
-              default: "default"
+              default: "default",
             },
             labelSelector: {
               type: "string",
               description: "Label selector to filter resources",
-              optional: true
+              optional: true,
             },
             container: {
               type: "string",
-              description: "Container name (required when pod has multiple containers)",
-              optional: true
+              description:
+                "Container name (required when pod has multiple containers)",
+              optional: true,
             },
             tail: {
               type: "number",
               description: "Number of lines to show from end of logs",
-              optional: true
+              optional: true,
             },
             since: {
               type: "number",
               description: "Get logs since relative time in seconds",
-              optional: true
+              optional: true,
             },
             timestamps: {
               type: "boolean",
               description: "Include timestamps in logs",
-              default: false
-            }
+              default: false,
+            },
           },
-          required: ["resourceType"]
+          required: ["resourceType"],
         },
       },
     ],
@@ -538,15 +540,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           },
         };
 
-        console.error('Creating pod with config:', JSON.stringify(pod, null, 2));
         const response = await k8sManager
           .getCoreApi()
           .createNamespacedPod(createPodInput.namespace, pod)
           .catch((error: any) => {
-            console.error('Pod creation error:', {
+            console.error("Pod creation error:", {
               status: error.response?.statusCode,
               message: error.response?.body?.message || error.message,
-              details: error.response?.body
+              details: error.response?.body,
             });
             throw error;
           });
@@ -759,11 +760,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           namespace = "default",
           labelSelector,
           container,
-          tail=100,
+          tail = 100,
           sinceSeconds,
           timestamps,
           pretty = true,
-          follow = false
+          follow = false,
         } = input as {
           resourceType: string;
           name?: string;
@@ -777,7 +778,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           follow?: false;
         };
 
-        async function getPodLogs(podName: string, podNamespace: string): Promise<string> {
+        async function getPodLogs(
+          podName: string,
+          podNamespace: string
+        ): Promise<string> {
           try {
             const { body } = await k8sManager.getCoreApi().readNamespacedPodLog(
               podName,
@@ -795,17 +799,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return body;
           } catch (error: any) {
             if (error.response?.statusCode === 404) {
-              throw new McpError(ErrorCode.InvalidRequest, `Pod ${podName} not found in namespace ${podNamespace}`);
+              throw new McpError(
+                ErrorCode.InvalidRequest,
+                `Pod ${podName} not found in namespace ${podNamespace}`
+              );
             }
             // Log full error details
-            console.error('Full error:', {
+            console.error("Full error:", {
               statusCode: error.response?.statusCode,
               message: error.response?.body?.message || error.message,
-              details: error.response?.body
+              details: error.response?.body,
             });
             throw new McpError(
-              ErrorCode.InternalError, 
-              `Failed to get logs for pod ${podName}: ${error.response?.body?.message || error.message}`
+              ErrorCode.InternalError,
+              `Failed to get logs for pod ${podName}: ${
+                error.response?.body?.message || error.message
+              }`
             );
           }
         }
@@ -817,7 +826,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           switch (resourceType.toLowerCase()) {
             case "pod": {
               if (!name) {
-                throw new McpError(ErrorCode.InvalidRequest, "Pod name is required when resourceType is 'pod'");
+                throw new McpError(
+                  ErrorCode.InvalidRequest,
+                  "Pod name is required when resourceType is 'pod'"
+                );
               }
               logs[name] = await getPodLogs(name, namespace);
               break;
@@ -825,29 +837,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             case "deployment": {
               if (!name) {
-                throw new McpError(ErrorCode.InvalidRequest, "Deployment name is required when resourceType is 'deployment'");
+                throw new McpError(
+                  ErrorCode.InvalidRequest,
+                  "Deployment name is required when resourceType is 'deployment'"
+                );
               }
-              const { body: deployment } = await k8sManager.getAppsApi().readNamespacedDeployment(name, namespace);
+              const { body: deployment } = await k8sManager
+                .getAppsApi()
+                .readNamespacedDeployment(name, namespace);
               if (!deployment.spec?.selector?.matchLabels) {
-                throw new McpError(ErrorCode.InvalidRequest, `Deployment ${name} has no selector`);
+                throw new McpError(
+                  ErrorCode.InvalidRequest,
+                  `Deployment ${name} has no selector`
+                );
               }
 
-              const selector = Object.entries(deployment.spec.selector.matchLabels)
+              const selector = Object.entries(
+                deployment.spec.selector.matchLabels
+              )
                 .map(([key, value]) => `${key}=${value}`)
                 .join(",");
 
-              const { body: podList } = await k8sManager.getCoreApi().listNamespacedPod(
-                namespace,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                selector
-              );
+              const { body: podList } = await k8sManager
+                .getCoreApi()
+                .listNamespacedPod(
+                  namespace,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  selector
+                );
 
               for (const pod of podList.items) {
                 if (pod.metadata?.name) {
-                  logs[pod.metadata.name] = await getPodLogs(pod.metadata.name, namespace);
+                  logs[pod.metadata.name] = await getPodLogs(
+                    pod.metadata.name,
+                    namespace
+                  );
                 }
               }
               break;
@@ -855,43 +882,59 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             case "job": {
               if (!name) {
-                throw new McpError(ErrorCode.InvalidRequest, "Job name is required when resourceType is 'job'");
+                throw new McpError(
+                  ErrorCode.InvalidRequest,
+                  "Job name is required when resourceType is 'job'"
+                );
               }
-              const { body: podList } = await k8sManager.getCoreApi().listNamespacedPod(
-                namespace,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                `job-name=${name}`
-              );
+              const { body: podList } = await k8sManager
+                .getCoreApi()
+                .listNamespacedPod(
+                  namespace,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  `job-name=${name}`
+                );
 
               for (const pod of podList.items) {
                 if (pod.metadata?.name) {
-                  logs[pod.metadata.name] = await getPodLogs(pod.metadata.name, namespace);
+                  logs[pod.metadata.name] = await getPodLogs(
+                    pod.metadata.name,
+                    namespace
+                  );
                 }
               }
               break;
             }
 
             default:
-              throw new McpError(ErrorCode.InvalidRequest, `Unsupported resource type: ${resourceType}`);
+              throw new McpError(
+                ErrorCode.InvalidRequest,
+                `Unsupported resource type: ${resourceType}`
+              );
           }
 
           // If labelSelector is provided, filter or add logs by label
           if (labelSelector) {
-            const { body: labeledPods } = await k8sManager.getCoreApi().listNamespacedPod(
-              namespace,
-              undefined,
-              undefined,
-              undefined,
-              undefined,
-              labelSelector
-            );
+            const { body: labeledPods } = await k8sManager
+              .getCoreApi()
+              .listNamespacedPod(
+                namespace,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                labelSelector
+              );
 
             for (const pod of labeledPods.items) {
               if (pod.metadata?.name) {
-                logs[pod.metadata.name] = await getPodLogs(pod.metadata.name, namespace);
+                logs[pod.metadata.name] = await getPodLogs(
+                  pod.metadata.name,
+                  namespace
+                );
               }
             }
           }
