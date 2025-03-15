@@ -16,6 +16,10 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function generateRandomSHA(): string {
+  return Math.random().toString(36).substring(2, 15);
+}
+
 describe("kubernetes server operations", () => {
   let transport: StdioClientTransport;
   let client: Client;
@@ -106,18 +110,38 @@ describe("kubernetes server operations", () => {
 
   });
 
-  test("log operations", async () => {
-    // 60 second timeout for this test
-    //Delete test pod if exists first
-    try {
-      console.log("deleting old test pod...");
-      const deletePodResult = await client.request(
+  test("pod lifecycle management", async () => {
+    const podBaseName = "unit-test";
+    const podName = `${podBaseName}-${generateRandomSHA()}`;
+    
+    // Step 1: Check if pods with unit-test prefix exist and terminate them if found
+    const existingPods = await client.request(
+      {
+        method: "tools/call",
+        params: {
+          name: "list_pods",
+          arguments: {
+            namespace: "default",
+          },
+        },
+      },
+      ListPodsResponseSchema
+    );
+    
+    const podsResponse = JSON.parse(existingPods.content[0].text);
+    const existingTestPods = podsResponse.items?.filter((pod: any) => 
+      pod.metadata?.name?.startsWith(podBaseName)
+    ) || [];
+
+    // Terminate existing test pods if found
+    for (const pod of existingTestPods) {
+      await client.request(
         {
           method: "tools/call",
           params: {
             name: "delete_pod",
             arguments: {
-              name: "logging-test-pod",
+              name: pod.metadata.name,
               namespace: "default",
               ignoreNotFound: true
             },
@@ -125,96 +149,67 @@ describe("kubernetes server operations", () => {
         },
         DeletePodResponseSchema
       );
-      console.log("Delete pod result:", JSON.stringify(deletePodResult, null, 2));
       
-      // Parse the delete result to check if pod was actually deleted or was already not found
-      const deleteResult = JSON.parse(deletePodResult.content[0].text);
+      // Wait for pod to be fully terminated
+      let podDeleted = false;
+      const terminationStartTime = Date.now();
       
-      // Only wait for termination if the pod was actually deleted (not if it was already not found)
-      if (deleteResult.status === "deleted") {
-        // Wait for pod to be fully terminated before creating a new one
-        console.log("Pod was found and deletion initiated. Waiting for pod to be fully terminated...");
-        
-        // Poll until the pod is fully deleted (404 Not Found)
-        let podDeleted = false;
-        let retries = 0;
-        const maxRetries = 140;
-        
-        while (!podDeleted && retries < maxRetries) {
-          try {
-            // Try to describe the pod - if it exists, this will succeed
-            await client.request(
-              {
-                method: "tools/call",
-                params: {
-                  name: "describe_pod",
-                  arguments: {
-                    name: "logging-test-pod",
-                    namespace: "default"
-                  }
+      while (!podDeleted && Date.now() - terminationStartTime < 10000) {
+        try {
+          await client.request(
+            {
+              method: "tools/call",
+              params: {
+                name: "describe_pod",
+                arguments: {
+                  name: pod.metadata.name,
+                  namespace: "default"
                 }
-              },
-              ListPodsResponseSchema
-            );
-            
-            // Pod still exists, wait and retry
-            console.log(`Pod still terminating, waiting... (${retries + 1}/${maxRetries})`);
-            retries++;
-          } catch (error) {
-            // If we get an error, it might be because the pod is gone (404)
-            console.log("Pod appears to be deleted, proceeding with creation");
-            podDeleted = true;
-          }
+              }
+            },
+            ListPodsResponseSchema
+          );
+          await sleep(500);
+        } catch (error) {
+          // If we get an error, it might be because the pod is gone (404)
+          podDeleted = true;
         }
-        
-        if (!podDeleted) {
-          console.warn("Warning: Pod might not be fully terminated, but proceeding anyway");
-        }
-      } else if (deleteResult.status === "not_found") {
-        console.log("Pod was not found, no need to wait for termination");
       }
-    } catch (error) {
-      console.error("Error during pod deletion:", error);
-      // Continue with the test even if deletion fails
-      // The pod might not exist, which is fine
     }
 
-    // Create a test pod that outputs logs
-    console.log("Starting pod creation...");
-    const createLoggingPodResult = await client.request(
+    // Create new pod with random SHA name
+    const createPodResult = await client.request(
       {
         method: "tools/call",
         params: {
           name: "create_pod",
           arguments: {
-            name: "logging-test-pod",
+            name: podName,
             namespace: "default",
             template: "busybox",
-            command: ["/bin/sh", "-c", "echo Test log message && sleep infinity"]
+            command: ["/bin/sh", "-c", "echo Pod is running && sleep infinity"]
           },
         },
       },
       CreatePodResponseSchema
     );
-    console.log("created new test pod...");
-    expect(createLoggingPodResult.content[0].type).toBe("text");
-    const loggingPodResult = JSON.parse(createLoggingPodResult.content[0].text);
-    expect(loggingPodResult.podName).toBe("logging-test-pod");
     
-    // Wait for pod to be in Running state before getting logs
-    console.log("waiting for pod to be in Running state...");
+    expect(createPodResult.content[0].type).toBe("text");
+    const podResult = JSON.parse(createPodResult.content[0].text);
+    expect(podResult.podName).toBe(podName);
+
+    // Step 2: Wait for Running state (up to 60 seconds)
     let podRunning = false;
-    let retries = 0;
-    const maxRetries = 70; // Maximum number of retries (70 * 2 seconds = 140 seconds max wait time)
+    const startTime = Date.now();
     
-    while (!podRunning && retries < maxRetries) {
-      const podStatusResult = await client.request(
+    while (!podRunning && Date.now() - startTime < 60000) {
+      const podStatus = await client.request(
         {
           method: "tools/call",
           params: {
             name: "describe_pod",
             arguments: {
-              name: "logging-test-pod",
+              name: podName,
               namespace: "default"
             },
           },
@@ -222,41 +217,100 @@ describe("kubernetes server operations", () => {
         ListPodsResponseSchema
       );
       
-      const podStatus = JSON.parse(podStatusResult.content[0].text);
-      console.log(`Pod status: ${JSON.stringify(podStatus.status?.phase || "unknown")}`);
-      
-      if (podStatus.status?.phase === "Running") {
+      const status = JSON.parse(podStatus.content[0].text);
+      if (status.status?.phase === "Running") {
         podRunning = true;
-        console.log("Pod is now running!");
-      } else {
-        console.log(`Pod not yet running, waiting... (${retries + 1}/${maxRetries})`);
-        retries++;
+        console.log(`Pod ${podName} is running. Checking logs...`);
+        
+        // Check pod logs once running
+        const logsResult = await client.request(
+          {
+            method: "tools/call",
+            params: {
+              name: "get_logs",
+              arguments: {
+                resourceType: "pod",
+                name: podName,
+                namespace: "default",
+              },
+            },
+          },
+          ListPodsResponseSchema
+        );
+        
+        expect(logsResult.content[0].type).toBe("text");
+        const logs = JSON.parse(logsResult.content[0].text);
+        expect(logs.logs[podName]).toContain("Pod is running");
+        break;
       }
+      await sleep(1000);
     }
     
-    if (!podRunning) {
-      throw new Error("Pod did not reach Running state within the timeout period");
-    }
-    
-    // Now that the pod is running, get the logs
-    console.log("checking pod logs...");
-    const getLogsResult = await client.request(
+    expect(podRunning).toBe(true);
+
+    // Step 3: Terminate pod and verify termination (wait up to 10 seconds)
+    const deletePodResult = await client.request(
       {
         method: "tools/call",
         params: {
-          name: "get_logs",
+          name: "delete_pod",
           arguments: {
-            resourceType: "pod",
-            name: "logging-test-pod",
+            name: podName,
             namespace: "default",
-            timestamps: true
           },
         },
       },
-      ListPodsResponseSchema
+      DeletePodResponseSchema
     );
-    expect(getLogsResult.content[0].type).toBe("text");
-    const logs = JSON.parse(getLogsResult.content[0].text);
-    expect(logs.logs["logging-test-pod"]).toContain("Test log message");
-  }, { timeout: 120000 });
+
+    expect(deletePodResult.content[0].type).toBe("text");
+    const deleteResult = JSON.parse(deletePodResult.content[0].text);
+    expect(deleteResult.status).toBe("deleted");
+
+    // Try to verify pod termination, but don't fail the test if we can't confirm it
+    try {
+      let podTerminated = false;
+      const terminationStartTime = Date.now();
+
+      while (!podTerminated && Date.now() - terminationStartTime < 10000) {
+        try {
+          const podStatus = await client.request(
+            {
+              method: "tools/call",
+              params: {
+                name: "describe_pod",
+                arguments: {
+                  name: podName,
+                  namespace: "default"
+                }
+              }
+            },
+            ListPodsResponseSchema
+          );
+          
+          // Pod still exists, check if it's in Terminating state
+          const status = JSON.parse(podStatus.content[0].text);
+          if (status.status?.phase === "Terminating") {
+            podTerminated = true;
+            break;
+          }
+          await sleep(500);
+        } catch (error) {
+          // If we get an error (404), the pod is gone which also means it's terminated
+          podTerminated = true;
+          break;
+        }
+      }
+      
+      // Log termination status but don't fail the test
+      if (podTerminated) {
+        console.log(`Pod ${podName} termination confirmed`);
+      } else {
+        console.log(`Pod ${podName} termination could not be confirmed within timeout, but deletion was initiated`);
+      }
+    } catch (error) {
+      // Ignore any errors during termination check
+      console.log(`Error checking pod termination status: ${error}`);
+    }
+  }, { timeout: 90000 }); // Set timeout to 90 seconds to account for all operations
 });
