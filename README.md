@@ -1,4 +1,4 @@
-# mcp-server-kubernetes
+mcp-server-kubernetes
 
 MCP Server that can connect to a Kubernetes cluster and manage it.
 
@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 {
   "mcpServers": {
     "kubernetes": {
-      "command": "npx",
+      "command": "npx"
       "args": ["mcp-server-kubernetes"]
     }
   }
@@ -23,12 +23,12 @@ The server will automatically connect to your current kubectl context. Make sure
 
 1. kubectl installed and in your PATH
 2. A valid kubeconfig file with contexts configured
-3. Access to a Kubernetes cluster configured for kubectl (e.g. minikube, Rancher Desktop, GKE, etc.)
+3. Access to a Kubernetes cluster configured for kubectl (e.g. minikube Rancher Desktop GKE etc.)
 4. Helm v3 installed and in your PATH (no Tiller required)
 
 You can verify your connection by asking Claude to list your pods or create a test deployment.
 
-If you have errors, open up a standard terminal and run `kubectl get pods` to see if you can connect to your cluster without credentials issues.
+If you have errors open up a standard terminal and run `kubectl get pods` to see if you can connect to your cluster without credentials issues.
 
 ## Features
 
@@ -41,7 +41,7 @@ If you have errors, open up a standard terminal and run `kubectl get pods` to se
 - [x] Delete a pod
 - [x] Describe a pod
 - [x] List all namespaces
-- [x] Get logs from a pod for debugging (supports pods, deployments, jobs, and label selectors)
+- [x] Get logs from a pod for debugging (supports pods deployments jobs and label selectors)
 - [x] Support Helm v3 for installing charts
   - Install charts with custom values
   - Uninstall releases
@@ -90,11 +90,30 @@ npx @modelcontextprotocol/inspector node build/index.js
 ### Project Structure
 
 ```
-src/
-├── index.ts     # Main server implementation
-├── types.ts     # TypeScript type definitions
-├── helm.test.ts # Helm chart installation tests
-└── unit.test.ts # Unit tests
+├── src/
+│   ├── index.ts              # Main server implementation
+│   ├── types.ts              # Type re-exports
+│   ├── config/              # Configuration files
+│   │   ├── container-templates.ts  # Container configurations
+│   │   ├── server-config.ts       # Server settings
+│   │   ├── deployment-config.ts    # Deployment schemas
+│   │   └── ...
+│   ├── models/              # Data models and schemas
+│   │   ├── response-schemas.ts    # API response schemas
+│   │   ├── resource-models.ts     # Resource models
+│   │   └── tool-models.ts         # Tool schemas
+│   ├── utils/               # Utility classes
+│   │   └── kubernetes-manager.ts  # K8s management
+│   ├── resources/           # Resource handlers
+│   │   └── handlers.ts      # Resource implementation
+│   └── tools/              # Tool implementations
+│       ├── list_pods.ts
+│       ├── list_services.ts
+│       ├── list_deployments.ts
+│       └── ...
+├── tests/                  # Test files
+│   └── unit.test.ts        # Unit tests
+└── ...
 ```
 
 ### Contributing
@@ -106,7 +125,7 @@ src/
 5. Ensure all tests pass
 6. Submit a pull request
 
-For bigger changes, please open an issue first to discuss the proposed changes.
+For bigger changes please open an issue first to discuss the proposed changes.
 
 ## Architecture
 
