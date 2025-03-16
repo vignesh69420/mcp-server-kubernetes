@@ -10,7 +10,14 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import * as k8s from "@kubernetes/client-node";
-import { ResourceTracker, PortForwardTracker, WatchTracker } from "./types.js";
+import {
+  ResourceTracker,
+  PortForwardTracker,
+  WatchTracker,
+  HelmUninstallRequest,
+  HelmUpgradeRequest,
+  HelmInstallRequest,
+} from "./types.js";
 import * as fs from "fs/promises";
 import * as yaml from "js-yaml";
 import { exec } from "child_process";
@@ -1102,10 +1109,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const valuesFile = `${upgradeInput.name}-values.yaml`;
         await fs.writeFile(valuesFile, yaml.dump(upgradeInput.values));
 
-        let command = `helm upgrade ${upgradeInput.name} -f ${valuesFile}`;
+        let command = `helm upgrade ${upgradeInput.name} ${upgradeInput.chart} -f ${valuesFile}`;
 
         if (upgradeInput.namespace) {
           command += ` -n ${upgradeInput.namespace}`;
+        }
+
+        if (upgradeInput.repo) {
+          command += ` --repo ${upgradeInput.repo}`;
         }
 
         const result = await execCommand(command);

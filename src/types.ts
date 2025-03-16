@@ -176,6 +176,8 @@ export const HelmUninstallRequestSchema = z.object({
 
 export const HelmUpgradeRequestSchema = z.object({
   name: z.string(),
+  chart: z.string(),
+  repo: z.string().optional(),
   values: z.record(z.any()),
   namespace: z.string().optional(),
 });

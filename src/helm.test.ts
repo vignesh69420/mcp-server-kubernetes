@@ -2,6 +2,7 @@ import { expect, test, describe, beforeEach, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { HelmResponseSchema } from "./types.js";
+import * as fs from "fs";
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -59,6 +60,11 @@ describe("helm operations", () => {
 
       await transport.close();
       await sleep(1000);
+
+      // Cleanup generated values files
+      if (fs.existsSync("test-nginx-values.yaml")) {
+        fs.unlinkSync("test-nginx-values.yaml");
+      }
     } catch (e) {
       console.error("Error during cleanup:", e);
     }
@@ -119,10 +125,8 @@ describe("helm operations", () => {
 
     const deployments = JSON.parse(deploymentResult.content[0].text);
     expect(
-      deployments.items.some(
-        (d: any) =>
-          d.metadata.name === testReleaseName ||
-          d.metadata.name.startsWith(`${testReleaseName}-nginx`)
+      deployments.deployments.some((d: any) =>
+        d.name.startsWith(testReleaseName)
       )
     ).toBe(true);
   }, 30000); // Increase timeout to 30s for chart installation
@@ -155,6 +159,8 @@ describe("helm operations", () => {
           name: "upgrade_helm_chart",
           arguments: {
             name: testReleaseName,
+            chart: "nginx",
+            repo: "https://charts.bitnami.com/bitnami",
             namespace: testNamespace,
             values: {
               replicaCount: 2,
@@ -193,13 +199,12 @@ describe("helm operations", () => {
     );
 
     const deployments = JSON.parse(deploymentResult.content[0].text);
-    const nginxDeployment = deployments.items.find(
-      (d: any) =>
-        d.metadata.name === testReleaseName ||
-        d.metadata.name.startsWith(`${testReleaseName}-nginx`)
+    const nginxDeployment = deployments.deployments.find((d: any) =>
+      d.name.startsWith(testReleaseName)
     );
+
     expect(nginxDeployment).toBeDefined();
-    expect(nginxDeployment.spec.replicas).toBe(2);
+    expect(nginxDeployment.replicas).toBe(2);
   }, 60000); // Increase timeout to 60s for install + upgrade
 
   test("uninstall helm chart", async () => {
@@ -260,10 +265,8 @@ describe("helm operations", () => {
 
     const deployments = JSON.parse(deploymentResult.content[0].text);
     expect(
-      deployments.items.every(
-        (d: any) =>
-          d.metadata.name !== testReleaseName &&
-          !d.metadata.name.startsWith(`${testReleaseName}-nginx`)
+      deployments.deployments.every(
+        (d: any) => !d.name.startsWith(testReleaseName)
       )
     ).toBe(true);
   }, 60000); // Increase timeout to 60s for install + uninstall
