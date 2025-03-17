@@ -1,6 +1,23 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { listPods, listPodsSchema } from "./tools/list_pods.js";
+import { listNodes, listNodesSchema } from "./tools/list_nodes.js";
+import { listServices, listServicesSchema } from "./tools/list_services.js";
+import { listDeployments, listDeploymentsSchema } from "./tools/list_deployments.js";
+import {
+  installHelmChart,
+  installHelmChartSchema,
+  upgradeHelmChart,
+  upgradeHelmChartSchema,
+  uninstallHelmChart,
+  uninstallHelmChartSchema,
+} from "./tools/helm-operations.js";
+import { createPod, createPodSchema } from "./tools/create_pod.js";
+import { deletePod, deletePodSchema } from "./tools/delete_pod.js";
+import { describePod, describePodSchema } from "./tools/describe_pod.js";
+import { getLogs, getLogsSchema } from "./tools/get_logs.js";
+import { getResourceHandlers } from "./resources/handlers.js";
 import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
@@ -10,577 +27,65 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import * as k8s from "@kubernetes/client-node";
-import {
-  ResourceTracker,
-  PortForwardTracker,
-  WatchTracker,
-  HelmUninstallRequest,
-  HelmUpgradeRequest,
-  HelmInstallRequest,
-} from "./types.js";
-import * as fs from "fs/promises";
-import * as yaml from "js-yaml";
-import { exec } from "child_process";
-
-class KubernetesManager {
-  private resources: ResourceTracker[] = [];
-  private portForwards: PortForwardTracker[] = [];
-  private watches: WatchTracker[] = [];
-  private kc: k8s.KubeConfig;
-  private k8sApi: k8s.CoreV1Api;
-  private k8sAppsApi: k8s.AppsV1Api;
-
-  constructor() {
-    this.kc = new k8s.KubeConfig();
-    this.kc.loadFromDefault();
-    this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
-    this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api);
-
-    // process.on("SIGINT", () => this.cleanup());
-    // process.on("SIGTERM", () => this.cleanup());
-  }
-
-  async cleanup() {
-    // Stop watches
-    for (const watch of this.watches) {
-      watch.abort.abort();
-    }
-
-    // Delete tracked resources in reverse order
-    for (const resource of [...this.resources].reverse()) {
-      try {
-        await this.deleteResource(
-          resource.kind,
-          resource.name,
-          resource.namespace
-        );
-      } catch (error) {
-        console.error(
-          `Failed to delete ${resource.kind} ${resource.name}:`,
-          error
-        );
-      }
-    }
-
-    // TODO: Cleanup port forwards when implemented
-  }
-
-  trackResource(kind: string, name: string, namespace: string) {
-    this.resources.push({ kind, name, namespace, createdAt: new Date() });
-  }
-
-  async deleteResource(kind: string, name: string, namespace: string) {
-    switch (kind.toLowerCase()) {
-      case "pod":
-        await this.k8sApi.deleteNamespacedPod(name, namespace);
-        break;
-      case "deployment":
-        await this.k8sAppsApi.deleteNamespacedDeployment(name, namespace);
-        break;
-      case "service":
-        await this.k8sApi.deleteNamespacedService(name, namespace);
-        break;
-    }
-    this.resources = this.resources.filter(
-      (r) => !(r.kind === kind && r.name === name && r.namespace === namespace)
-    );
-  }
-
-  trackPortForward(pf: PortForwardTracker) {
-    this.portForwards.push(pf);
-  }
-
-  getPortForward(id: string) {
-    return this.portForwards.find((p) => p.id === id);
-  }
-
-  removePortForward(id: string) {
-    this.portForwards = this.portForwards.filter((p) => p.id !== id);
-  }
-
-  trackWatch(watch: WatchTracker) {
-    this.watches.push(watch);
-  }
-
-  getKubeConfig() {
-    return this.kc;
-  }
-  getCoreApi() {
-    return this.k8sApi;
-  }
-  getAppsApi() {
-    return this.k8sAppsApi;
-  }
-}
+import { KubernetesManager } from "./types.js";
+import { serverConfig } from "./config/server-config.js";
+import { createDeploymentSchema } from "./config/deployment-config.js";
+import { listNamespacesSchema } from "./config/namespace-config.js";
+import { cleanupSchema } from "./config/cleanup-config.js";
 
 const k8sManager = new KubernetesManager();
 
-// Template configurations with health checks and resource limits
-// TODO: Update create_pod to accept custom images and custom template files
-const containerTemplates: Record<string, k8s.V1Container> = {
-  ubuntu: {
-    name: "main",
-    image: "ubuntu:latest",
-    command: ["/bin/bash"],
-    args: ["-c", "sleep infinity"],
-    resources: {
-      limits: {
-        cpu: "200m",
-        memory: "256Mi",
-      },
-      requests: {
-        cpu: "100m",
-        memory: "128Mi",
-      },
-    },
-    livenessProbe: {
-      exec: {
-        command: ["cat", "/proc/1/status"],
-      },
-      initialDelaySeconds: 5,
-      periodSeconds: 10,
-    },
-  },
-  nginx: {
-    name: "main",
-    image: "nginx:latest",
-    ports: [{ containerPort: 80 }],
-    resources: {
-      limits: {
-        cpu: "200m",
-        memory: "256Mi",
-      },
-      requests: {
-        cpu: "100m",
-        memory: "128Mi",
-      },
-    },
-    livenessProbe: {
-      httpGet: {
-        path: "/",
-        port: 80,
-      },
-      initialDelaySeconds: 5,
-      periodSeconds: 10,
-    },
-    readinessProbe: {
-      httpGet: {
-        path: "/",
-        port: 80,
-      },
-      initialDelaySeconds: 2,
-      periodSeconds: 5,
-    },
-  },
-  busybox: {
-    name: "main",
-    image: "busybox:latest",
-    command: ["sh"],
-    args: ["-c", "sleep infinity"],
-    resources: {
-      limits: {
-        cpu: "100m",
-        memory: "64Mi",
-      },
-      requests: {
-        cpu: "50m",
-        memory: "32Mi",
-      },
-    },
-    livenessProbe: {
-      exec: {
-        command: ["true"],
-      },
-      periodSeconds: 10,
-    },
-  },
-  alpine: {
-    name: "main",
-    image: "alpine:latest",
-    command: ["sh"],
-    args: ["-c", "sleep infinity"],
-    resources: {
-      limits: {
-        cpu: "100m",
-        memory: "64Mi",
-      },
-      requests: {
-        cpu: "50m",
-        memory: "32Mi",
-      },
-    },
-    livenessProbe: {
-      exec: {
-        command: ["true"],
-      },
-      periodSeconds: 10,
-    },
-  },
-};
-
 const server = new Server(
   {
-    name: "kubernetes",
-    version: "0.1.0",
+    name: serverConfig.name,
+    version: serverConfig.version,
   },
-  {
-    capabilities: {
-      resources: {},
-      tools: {},
-    },
-  }
+  serverConfig
 );
-
-// Helper function to execute shell commands
-function execCommand(command: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(`Command failed: ${error.message}\n${stderr}`));
-        return;
-      }
-      resolve(stdout.trim());
-    });
-  });
-}
 
 // Tools handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
-      {
-        name: "list_pods",
-        description: "List pods in a namespace",
-        inputSchema: {
-          type: "object",
-          properties: {
-            namespace: { type: "string", default: "default" },
-          },
-          required: ["namespace"],
-        },
-      },
-      {
-        name: "list_deployments",
-        description: "List deployments in a namespace",
-        inputSchema: {
-          type: "object",
-          properties: {
-            namespace: { type: "string", default: "default" },
-          },
-          required: ["namespace"],
-        },
-      },
-      {
-        name: "list_services",
-        description: "List services in a namespace",
-        inputSchema: {
-          type: "object",
-          properties: {
-            namespace: { type: "string", default: "default" },
-          },
-          required: ["namespace"],
-        },
-      },
-      {
-        name: "list_namespaces",
-        description: "List all namespaces",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        // TODO: Add support for custom images and templates (see above in containerTemplates definition)
-        name: "create_pod",
-        description: "Create a new Kubernetes pod",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            namespace: { type: "string" },
-            template: {
-              type: "string",
-              enum: ["ubuntu", "nginx", "busybox", "alpine"],
-            },
-            command: {
-              type: "array",
-              items: { type: "string" },
-              optional: true,
-            },
-          },
-          required: ["name", "namespace", "template"],
-        },
-      },
-      {
-        // TODO: Support for custom deployments (see above)
-        name: "create_deployment",
-        description: "Create a new Kubernetes deployment",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            namespace: { type: "string" },
-            template: {
-              type: "string",
-              enum: ["ubuntu", "nginx", "busybox", "alpine"],
-            },
-            replicas: { type: "number", default: 1 },
-            ports: {
-              type: "array",
-              items: { type: "number" },
-              optional: true,
-            },
-          },
-          required: ["name", "namespace", "template"],
-        },
-      },
-      {
-        name: "delete_pod",
-        description: "Delete a Kubernetes pod",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            namespace: { type: "string" },
-            ignoreNotFound: { type: "boolean", default: false },
-          },
-          required: ["name", "namespace"],
-        },
-      },
-      {
-        name: "describe_pod",
-        description:
-          "Describe a Kubernetes pod (read details like status, containers, etc.)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            namespace: { type: "string" },
-          },
-          required: ["name", "namespace"],
-        },
-      },
-      {
-        name: "cleanup",
-        description: "Cleanup all managed resources",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "list_nodes",
-        description: "List all nodes in the cluster",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "get_logs",
-        description:
-          "Get logs from pods, deployments, jobs, or resources matching a label selector",
-        inputSchema: {
-          type: "object",
-          properties: {
-            resourceType: {
-              type: "string",
-              enum: ["pod", "deployment", "job"],
-              description: "Type of resource to get logs from",
-            },
-            name: {
-              type: "string",
-              description: "Name of the resource",
-            },
-            namespace: {
-              type: "string",
-              description: "Namespace of the resource",
-              default: "default",
-            },
-            labelSelector: {
-              type: "string",
-              description: "Label selector to filter resources",
-              optional: true,
-            },
-            container: {
-              type: "string",
-              description:
-                "Container name (required when pod has multiple containers)",
-              optional: true,
-            },
-            tail: {
-              type: "number",
-              description: "Number of lines to show from end of logs",
-              optional: true,
-            },
-            since: {
-              type: "number",
-              description: "Get logs since relative time in seconds",
-              optional: true,
-            },
-            timestamps: {
-              type: "boolean",
-              description: "Include timestamps in logs",
-              default: false,
-            },
-          },
-          required: ["resourceType"],
-        },
-      },
-      {
-        name: "install_helm_chart",
-        description: "Install a Helm chart",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Release name" },
-            chart: { type: "string", description: "Chart name or URL" },
-            namespace: {
-              type: "string",
-              description: "Target namespace",
-              optional: true,
-            },
-            values: {
-              type: "object",
-              description: "Values to override",
-              optional: true,
-            },
-            version: {
-              type: "string",
-              description: "Chart version",
-              optional: true,
-            },
-            repo: {
-              type: "string",
-              description: "Chart repository URL",
-              optional: true,
-            },
-          },
-          required: ["name", "chart"],
-        },
-      },
-      {
-        name: "uninstall_helm_chart",
-        description: "Uninstall a Helm release",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Release name" },
-            namespace: {
-              type: "string",
-              description: "Release namespace",
-              optional: true,
-            },
-          },
-          required: ["name"],
-        },
-      },
-      {
-        name: "upgrade_helm_chart",
-        description: "Upgrade a Helm release with new values",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Release name" },
-            values: { type: "object", description: "New values to apply" },
-            namespace: {
-              type: "string",
-              description: "Release namespace",
-              optional: true,
-            },
-          },
-          required: ["name", "values"],
-        },
-      },
+      listPodsSchema,
+      listDeploymentsSchema,
+      listServicesSchema,
+      listNamespacesSchema,
+      createPodSchema,
+      createDeploymentSchema,
+      deletePodSchema,
+      describePodSchema,
+      cleanupSchema,
+      listNodesSchema,
+      getLogsSchema,
+      installHelmChartSchema,
+      upgradeHelmChartSchema,
+      uninstallHelmChartSchema,
     ],
   };
 });
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request: { params: { name: string; _meta?: any; arguments?: Record<string, any> }; method: string }) => {
   try {
-    const { name } = request.params;
-    const input = request.params.arguments;
+    const { name, arguments: input = {} } = request.params;
 
     switch (name) {
       case "list_pods": {
-        const listPodsInput = input as { namespace?: string };
-        const namespace = listPodsInput.namespace || "default";
-        const { body } = await k8sManager
-          .getCoreApi()
-          .listNamespacedPod(namespace);
-
-        const pods = body.items.map((pod) => ({
-          name: pod.metadata?.name || "",
-          namespace: pod.metadata?.namespace || "",
-          status: pod.status?.phase,
-          createdAt: pod.metadata?.creationTimestamp,
-        }));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ pods }, null, 2),
-            },
-          ],
-        };
+        return await listPods(k8sManager, input as { namespace?: string });
       }
 
       case "list_deployments": {
-        const listDeploymentsInput = input as { namespace?: string };
-        const namespace = listDeploymentsInput.namespace || "default";
-        const { body } = await k8sManager
-          .getAppsApi()
-          .listNamespacedDeployment(namespace);
-
-        const deployments = body.items.map((deployment) => ({
-          name: deployment.metadata?.name || "",
-          namespace: deployment.metadata?.namespace || "",
-          replicas: deployment.spec?.replicas || 0,
-          availableReplicas: deployment.status?.availableReplicas || 0,
-          createdAt: deployment.metadata?.creationTimestamp,
-        }));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ deployments }, null, 2),
-            },
-          ],
-        };
+        return await listDeployments(k8sManager, input as { namespace?: string });
       }
 
       case "list_services": {
-        const listServicesInput = input as { namespace?: string };
-        const namespace = listServicesInput.namespace || "default";
-        const { body } = await k8sManager
-          .getCoreApi()
-          .listNamespacedService(namespace);
-
-        const services = body.items.map((service) => ({
-          name: service.metadata?.name || "",
-          namespace: service.metadata?.namespace || "",
-          type: service.spec?.type,
-          clusterIP: service.spec?.clusterIP,
-          ports: service.spec?.ports || [],
-          createdAt: service.metadata?.creationTimestamp,
-        }));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ services }, null, 2),
-            },
-          ],
-        };
+        return await listServices(k8sManager, input as { namespace?: string });
       }
 
       case "list_namespaces": {
         const { body } = await k8sManager.getCoreApi().listNamespace();
 
-        const namespaces = body.items.map((ns) => ({
+        const namespaces = body.items.map((ns: k8s.V1Namespace) => ({
           name: ns.metadata?.name || "",
           status: ns.status?.phase || "",
           createdAt: ns.metadata?.creationTimestamp,
@@ -597,212 +102,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "create_pod": {
-        const createPodInput = input as {
+        return await createPod(k8sManager, input as {
           name: string;
           namespace: string;
           template: string;
           command?: string[];
-        };
-        const templateConfig = containerTemplates[createPodInput.template];
-        const pod: k8s.V1Pod = {
-          apiVersion: "v1",
-          kind: "Pod",
-          metadata: {
-            name: createPodInput.name,
-            namespace: createPodInput.namespace,
-            labels: {
-              "mcp-managed": "true",
-              app: createPodInput.name,
-            },
-          },
-          spec: {
-            containers: [
-              {
-                ...templateConfig,
-                ...(createPodInput.command && {
-                  command: createPodInput.command,
-                  args: undefined, // Clear default args when command is overridden
-                }),
-              },
-            ],
-          },
-        };
-
-        const response = await k8sManager
-          .getCoreApi()
-          .createNamespacedPod(createPodInput.namespace, pod)
-          .catch((error: any) => {
-            console.error("Pod creation error:", {
-              status: error.response?.statusCode,
-              message: error.response?.body?.message || error.message,
-              details: error.response?.body,
-            });
-            throw error;
-          });
-        k8sManager.trackResource(
-          "Pod",
-          createPodInput.name,
-          createPodInput.namespace
-        );
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  podName: response.body.metadata!.name!,
-                  status: "created",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        });
       }
 
       case "delete_pod": {
-        const deletePodInput = input as {
+        return await deletePod(k8sManager, input as {
           name: string;
           namespace: string;
           ignoreNotFound?: boolean;
-        };
-        try {
-          await k8sManager
-            .getCoreApi()
-            .deleteNamespacedPod(deletePodInput.name, deletePodInput.namespace);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    success: true,
-                    status: "deleted",
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        } catch (error: any) {
-          if (
-            deletePodInput.ignoreNotFound &&
-            error.response?.statusCode === 404
-          ) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      success: true,
-                      status: "not_found",
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
-            };
-          }
-          throw error;
-        }
+        });
       }
 
       case "describe_pod": {
-        const describePodInput = input as {
+        return await describePod(k8sManager, input as {
           name: string;
           namespace: string;
-        };
-        try {
-          const { body } = await k8sManager
-            .getCoreApi()
-            .readNamespacedPod(
-              describePodInput.name,
-              describePodInput.namespace
-            );
-
-          if (!body) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      error: "Pod not found",
-                      status: "not_found",
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
-              isError: true,
-            };
-          }
-
-          // Format the pod details for better readability
-          const podDetails = {
-            kind: body.kind,
-            metadata: {
-              name: body.metadata?.name,
-              namespace: body.metadata?.namespace,
-              creationTimestamp: body.metadata?.creationTimestamp,
-              labels: body.metadata?.labels,
-            },
-            spec: {
-              containers: body.spec?.containers.map((container) => ({
-                name: container.name,
-                image: container.image,
-                ports: container.ports,
-                resources: container.resources,
-              })),
-              nodeName: body.spec?.nodeName,
-            },
-            status: {
-              phase: body.status?.phase,
-              conditions: body.status?.conditions,
-              containerStatuses: body.status?.containerStatuses,
-            },
-          };
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(podDetails, null, 2),
-              },
-            ],
-          };
-        } catch (error: any) {
-          if (error.response?.statusCode === 404) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      error: "Pod not found",
-                      status: "not_found",
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
-              isError: true,
-            };
-          }
-          throw new McpError(
-            ErrorCode.InternalError,
-            `Failed to describe pod: ${
-              error.response?.body?.message || error.message
-            }`
-          );
-        }
+        });
       }
 
       case "cleanup": {
@@ -824,36 +144,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "list_nodes": {
-        const { body } = await k8sManager.getCoreApi().listNode();
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  nodes: body.items,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        return await listNodes(k8sManager);
       }
 
       case "get_logs": {
-        const {
-          resourceType,
-          name,
-          namespace = "default",
-          labelSelector,
-          container,
-          tail = 100,
-          sinceSeconds,
-          timestamps,
-          pretty = true,
-          follow = false,
-        } = input as {
+        return await getLogs(k8sManager, input as {
           resourceType: string;
           name?: string;
           namespace?: string;
@@ -864,274 +159,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           timestamps?: boolean;
           pretty?: boolean;
           follow?: false;
-        };
-
-        async function getPodLogs(
-          podName: string,
-          podNamespace: string
-        ): Promise<string> {
-          try {
-            const { body } = await k8sManager.getCoreApi().readNamespacedPodLog(
-              podName,
-              podNamespace,
-              container,
-              follow,
-              undefined, // insecureSkipTLSVerifyBackend
-              undefined, // limitBytes
-              pretty ? "true" : "false",
-              undefined, // previous
-              sinceSeconds,
-              tail,
-              timestamps
-            );
-            return body;
-          } catch (error: any) {
-            if (error.response?.statusCode === 404) {
-              throw new McpError(
-                ErrorCode.InvalidRequest,
-                `Pod ${podName} not found in namespace ${podNamespace}`
-              );
-            }
-            // Log full error details
-            console.error("Full error:", {
-              statusCode: error.response?.statusCode,
-              message: error.response?.body?.message || error.message,
-              details: error.response?.body,
-            });
-            throw new McpError(
-              ErrorCode.InternalError,
-              `Failed to get logs for pod ${podName}: ${
-                error.response?.body?.message || error.message
-              }`
-            );
-          }
-        }
-
-        const logs: { [key: string]: string } = {};
-
-        try {
-          // Get logs based on resource type
-          switch (resourceType.toLowerCase()) {
-            case "pod": {
-              if (!name) {
-                throw new McpError(
-                  ErrorCode.InvalidRequest,
-                  "Pod name is required when resourceType is 'pod'"
-                );
-              }
-              logs[name] = await getPodLogs(name, namespace);
-              break;
-            }
-
-            case "deployment": {
-              if (!name) {
-                throw new McpError(
-                  ErrorCode.InvalidRequest,
-                  "Deployment name is required when resourceType is 'deployment'"
-                );
-              }
-              const { body: deployment } = await k8sManager
-                .getAppsApi()
-                .readNamespacedDeployment(name, namespace);
-              if (!deployment.spec?.selector?.matchLabels) {
-                throw new McpError(
-                  ErrorCode.InvalidRequest,
-                  `Deployment ${name} has no selector`
-                );
-              }
-
-              const selector = Object.entries(
-                deployment.spec.selector.matchLabels
-              )
-                .map(([key, value]) => `${key}=${value}`)
-                .join(",");
-
-              const { body: podList } = await k8sManager
-                .getCoreApi()
-                .listNamespacedPod(
-                  namespace,
-                  undefined,
-                  undefined,
-                  undefined,
-                  undefined,
-                  selector
-                );
-
-              for (const pod of podList.items) {
-                if (pod.metadata?.name) {
-                  logs[pod.metadata.name] = await getPodLogs(
-                    pod.metadata.name,
-                    namespace
-                  );
-                }
-              }
-              break;
-            }
-
-            case "job": {
-              if (!name) {
-                throw new McpError(
-                  ErrorCode.InvalidRequest,
-                  "Job name is required when resourceType is 'job'"
-                );
-              }
-              const { body: podList } = await k8sManager
-                .getCoreApi()
-                .listNamespacedPod(
-                  namespace,
-                  undefined,
-                  undefined,
-                  undefined,
-                  undefined,
-                  `job-name=${name}`
-                );
-
-              for (const pod of podList.items) {
-                if (pod.metadata?.name) {
-                  logs[pod.metadata.name] = await getPodLogs(
-                    pod.metadata.name,
-                    namespace
-                  );
-                }
-              }
-              break;
-            }
-
-            default:
-              throw new McpError(
-                ErrorCode.InvalidRequest,
-                `Unsupported resource type: ${resourceType}`
-              );
-          }
-
-          // If labelSelector is provided, filter or add logs by label
-          if (labelSelector) {
-            const { body: labeledPods } = await k8sManager
-              .getCoreApi()
-              .listNamespacedPod(
-                namespace,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                labelSelector
-              );
-
-            for (const pod of labeledPods.items) {
-              if (pod.metadata?.name) {
-                logs[pod.metadata.name] = await getPodLogs(
-                  pod.metadata.name,
-                  namespace
-                );
-              }
-            }
-          }
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({ logs }, null, 2),
-              },
-            ],
-          };
-        } catch (error) {
-          if (error instanceof McpError) throw error;
-          throw new McpError(
-            ErrorCode.InternalError,
-            `Failed to get logs: ${error}`
-          );
-        }
+        });
       }
 
       case "install_helm_chart": {
-        const installInput = input as HelmInstallRequest;
-        let command = `helm install ${installInput.name} ${installInput.chart}`;
-
-        if (installInput.namespace) {
-          command += ` -n ${installInput.namespace}`;
-        }
-
-        if (installInput.values) {
-          const valuesFile = `${installInput.name}-values.yaml`;
-          await fs.writeFile(valuesFile, yaml.dump(installInput.values));
-          command += ` -f ${valuesFile}`;
-        }
-
-        if (installInput.version) {
-          command += ` --version ${installInput.version}`;
-        }
-
-        if (installInput.repo) {
-          command += ` --repo ${installInput.repo}`;
-        }
-
-        const result = await execCommand(command);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { status: "installed", output: result },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      case "uninstall_helm_chart": {
-        const uninstallInput = input as HelmUninstallRequest;
-        let command = `helm uninstall ${uninstallInput.name}`;
-
-        if (uninstallInput.namespace) {
-          command += ` -n ${uninstallInput.namespace}`;
-        }
-
-        const result = await execCommand(command);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { status: "uninstalled", output: result },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        return await installHelmChart(input as {
+          name: string;
+          chart: string;
+          repo: string;
+          namespace: string;
+          values?: Record<string, any>;
+        });
       }
 
       case "upgrade_helm_chart": {
-        const upgradeInput = input as HelmUpgradeRequest;
-        const valuesFile = `${upgradeInput.name}-values.yaml`;
-        await fs.writeFile(valuesFile, yaml.dump(upgradeInput.values));
+        return await upgradeHelmChart(input as {
+          name: string;
+          chart: string;
+          repo: string;
+          namespace: string;
+          values?: Record<string, any>;
+        });
+      }
 
-        let command = `helm upgrade ${upgradeInput.name} ${upgradeInput.chart} -f ${valuesFile}`;
-
-        if (upgradeInput.namespace) {
-          command += ` -n ${upgradeInput.namespace}`;
-        }
-
-        if (upgradeInput.repo) {
-          command += ` --repo ${upgradeInput.repo}`;
-        }
-
-        const result = await execCommand(command);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { status: "upgraded", output: result },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+      case "uninstall_helm_chart": {
+        return await uninstallHelmChart(input as {
+          name: string;
+          namespace: string;
+        });
       }
 
       default:
@@ -1147,123 +202,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 // Resources handlers
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  return {
-    resources: [
-      {
-        uri: "k8s://default/pods",
-        name: "Kubernetes Pods",
-        mimeType: "application/json",
-        description: "List of pods in the default namespace",
-      },
-      {
-        uri: "k8s://default/deployments",
-        name: "Kubernetes Deployments",
-        mimeType: "application/json",
-        description: "List of deployments in the default namespace",
-      },
-      {
-        uri: "k8s://default/services",
-        name: "Kubernetes Services",
-        mimeType: "application/json",
-        description: "List of services in the default namespace",
-      },
-      {
-        uri: "k8s://namespaces",
-        name: "Kubernetes Namespaces",
-        mimeType: "application/json",
-        description: "List of all namespaces",
-      },
-      {
-        uri: "k8s://nodes",
-        name: "Kubernetes Nodes",
-        mimeType: "application/json",
-        description: "List of all nodes in the cluster",
-      },
-    ],
-  };
-});
-
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  try {
-    const uri = request.params.uri;
-    const parts = uri.replace("k8s://", "").split("/");
-
-    const isNamespaces = parts[0] === "namespaces";
-    const isNodes = parts[0] === "nodes";
-    if ((isNamespaces || isNodes) && parts.length === 1) {
-      const fn = isNodes ? "listNode" : "listNamespace";
-      const { body } = await k8sManager.getCoreApi()[fn]();
-      return {
-        contents: [
-          {
-            uri: request.params.uri,
-            mimeType: "application/json",
-            text: JSON.stringify(body.items, null, 2),
-          },
-        ],
-      };
-    }
-
-    const [namespace, resourceType] = parts;
-
-    switch (resourceType) {
-      case "pods": {
-        const { body } = await k8sManager
-          .getCoreApi()
-          .listNamespacedPod(namespace);
-        return {
-          contents: [
-            {
-              uri: request.params.uri,
-              mimeType: "application/json",
-              text: JSON.stringify(body.items, null, 2),
-            },
-          ],
-        };
-      }
-      case "deployments": {
-        const { body } = await k8sManager
-          .getAppsApi()
-          .listNamespacedDeployment(namespace);
-        return {
-          contents: [
-            {
-              uri: request.params.uri,
-              mimeType: "application/json",
-              text: JSON.stringify(body.items, null, 2),
-            },
-          ],
-        };
-      }
-      case "services": {
-        const { body } = await k8sManager
-          .getCoreApi()
-          .listNamespacedService(namespace);
-        return {
-          contents: [
-            {
-              uri: request.params.uri,
-              mimeType: "application/json",
-              text: JSON.stringify(body.items, null, 2),
-            },
-          ],
-        };
-      }
-      default:
-        throw new McpError(
-          ErrorCode.InvalidRequest,
-          `Unsupported resource type: ${resourceType}`
-        );
-    }
-  } catch (error) {
-    if (error instanceof McpError) throw error;
-    throw new McpError(
-      ErrorCode.InternalError,
-      `Failed to read resource: ${error}`
-    );
-  }
-});
+const resourceHandlers = getResourceHandlers(k8sManager);
+server.setRequestHandler(ListResourcesRequestSchema, resourceHandlers.listResources);
+server.setRequestHandler(ReadResourceRequestSchema, resourceHandlers.readResource);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

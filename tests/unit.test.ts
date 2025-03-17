@@ -11,14 +11,14 @@ import {
 } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { ListToolsResponseSchema } from "../src/models/tool-models.js";
 import {
-  ListToolsResponseSchema,
   ListPodsResponseSchema,
   ListNamespacesResponseSchema,
   ListNodesResponseSchema,
   CreatePodResponseSchema,
   DeletePodResponseSchema,
-} from "./types.js";
+} from "../src/models/response-schemas.js";
 
 /**
  * Utility function to create a promise that resolves after specified milliseconds

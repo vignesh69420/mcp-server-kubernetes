@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeEach, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { HelmResponseSchema } from "./types.js";
+import { HelmResponseSchema } from "../src/models/helm-models.js";
 import * as fs from "fs";
 
 async function sleep(ms: number): Promise<void> {
@@ -78,7 +78,7 @@ describe("helm operations", () => {
           name: "install_helm_chart",
           arguments: {
             name: testReleaseName,
-            chart: "nginx",
+            chart: "bitnami/nginx",
             repo: "https://charts.bitnami.com/bitnami",
             namespace: testNamespace,
             values: {
@@ -140,9 +140,24 @@ describe("helm operations", () => {
           name: "install_helm_chart",
           arguments: {
             name: testReleaseName,
-            chart: "nginx",
+            chart: "bitnami/nginx",
             repo: "https://charts.bitnami.com/bitnami",
             namespace: testNamespace,
+            values: {
+              service: {
+                type: "ClusterIP",
+              },
+              resources: {
+                limits: {
+                  cpu: "100m",
+                  memory: "128Mi",
+                },
+                requests: {
+                  cpu: "50m",
+                  memory: "64Mi",
+                },
+              },
+            },
           },
         },
       },
@@ -159,17 +174,14 @@ describe("helm operations", () => {
           name: "upgrade_helm_chart",
           arguments: {
             name: testReleaseName,
-            chart: "nginx",
+            chart: "bitnami/nginx",
             repo: "https://charts.bitnami.com/bitnami",
             namespace: testNamespace,
             values: {
               replicaCount: 2,
-              resources: {
-                limits: {
-                  cpu: "200m",
-                  memory: "256Mi",
-                },
-              },
+              service: {
+                type: "ClusterIP",
+              }
             },
           },
         },
@@ -216,9 +228,24 @@ describe("helm operations", () => {
           name: "install_helm_chart",
           arguments: {
             name: testReleaseName,
-            chart: "nginx",
+            chart: "bitnami/nginx",
             repo: "https://charts.bitnami.com/bitnami",
             namespace: testNamespace,
+            values: {
+              service: {
+                type: "ClusterIP",
+              },
+              resources: {
+                limits: {
+                  cpu: "100m",
+                  memory: "128Mi",
+                },
+                requests: {
+                  cpu: "50m",
+                  memory: "64Mi",
+                },
+              },
+            },
           },
         },
       },
