@@ -113,6 +113,7 @@ npx @modelcontextprotocol/inspector node build/index.js
 │       └── ...
 ├── tests/                  # Test files
 │   └── unit.test.ts        # Unit tests
+│   └── helm.test.ts        # Helm tests
 └── ...
 ```
 

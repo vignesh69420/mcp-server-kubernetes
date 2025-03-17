@@ -5,6 +5,14 @@ import { listPods, listPodsSchema } from "./tools/list_pods.js";
 import { listNodes, listNodesSchema } from "./tools/list_nodes.js";
 import { listServices, listServicesSchema } from "./tools/list_services.js";
 import { listDeployments, listDeploymentsSchema } from "./tools/list_deployments.js";
+import {
+  installHelmChart,
+  installHelmChartSchema,
+  upgradeHelmChart,
+  upgradeHelmChartSchema,
+  uninstallHelmChart,
+  uninstallHelmChartSchema,
+} from "./tools/helm-operations.js";
 import { createPod, createPodSchema } from "./tools/create_pod.js";
 import { deletePod, deletePodSchema } from "./tools/delete_pod.js";
 import { describePod, describePodSchema } from "./tools/describe_pod.js";
@@ -50,6 +58,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       cleanupSchema,
       listNodesSchema,
       getLogsSchema,
+      installHelmChartSchema,
+      upgradeHelmChartSchema,
+      uninstallHelmChartSchema,
     ],
   };
 });
@@ -148,6 +159,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request: { params: { name
           timestamps?: boolean;
           pretty?: boolean;
           follow?: false;
+        });
+      }
+
+      case "install_helm_chart": {
+        return await installHelmChart(input as {
+          name: string;
+          chart: string;
+          repo: string;
+          namespace: string;
+          values?: Record<string, any>;
+        });
+      }
+
+      case "upgrade_helm_chart": {
+        return await upgradeHelmChart(input as {
+          name: string;
+          chart: string;
+          repo: string;
+          namespace: string;
+          values?: Record<string, any>;
+        });
+      }
+
+      case "uninstall_helm_chart": {
+        return await uninstallHelmChart(input as {
+          name: string;
+          namespace: string;
         });
       }
 
