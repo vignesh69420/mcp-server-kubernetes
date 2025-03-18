@@ -50,6 +50,7 @@ If you have errors open up a standard terminal and run `kubectl get pods` to see
   - Support for version specification
   - Support for custom repositories
 - [x] kubectl explain and kubectl api-resources support
+- [x] Get Kubernetes events from the cluster
 - [ ] Port forward to a pod
 - [ ] Choose namespace for next commands (memory)
 
