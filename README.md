@@ -1,4 +1,14 @@
-# mcp-server-kubernetes
+# MCP Server Kubernetes
+
+[![CI](https://github.com/Flux159/mcp-server-kubernetes/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/mcp-server-kubernetes/actions/workflows/ci.yml)
+[![Language](https://img.shields.io/github/languages/top/Flux159/mcp-server-kubernetes)](https://github.com/yourusername/mcp-server-kubernetes)
+[![Bun](https://img.shields.io/badge/runtime-bun-orange)](https://bun.sh)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Stars](https://img.shields.io/github/stars/Flux159/mcp-server-kubernetes)](https://github.com/Flux159/mcp-server-kubernetes/stargazers)
+[![Issues](https://img.shields.io/github/issues/Flux159/mcp-server-kubernetes)](https://github.com/Flux159/mcp-server-kubernetes/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Flux159/mcp-server-kubernetes/pulls)
+[![Last Commit](https://img.shields.io/github/last-commit/Flux159/mcp-server-kubernetes)](https://github.com/Flux159/mcp-server-kubernetes/commits/main)
 
 MCP Server that can connect to a Kubernetes cluster and manage it.
 
@@ -6,7 +16,45 @@ https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 
 <a href="https://glama.ai/mcp/servers/w71ieamqrt"><img width="380" height="200" src="https://glama.ai/mcp/servers/w71ieamqrt/badge" /></a>
 
-## Usage with Claude Desktop
+## Installation
+
+You can install the MCP Server for Kubernetes using npm or yarn:
+
+```bash
+# Using npm
+npm install -g mcp-server-kubernetes
+
+# Using yarn
+yarn global add mcp-server-kubernetes
+
+# Using bun
+bun install -g mcp-server-kubernetes
+
+# Run directly with npx (no installation needed)
+npx mcp-server-kubernetes
+```
+
+### Prerequisites
+
+Before using the server, make sure you have:
+
+1. Node.js 18 or higher installed
+2. kubectl installed and in your PATH
+3. A valid kubeconfig file with contexts configured
+4. Access to a Kubernetes cluster (e.g., minikube, Docker Desktop, GKE, EKS, etc.)
+5. Helm v3 installed (optional, only if you plan to use Helm charts)
+
+### Setting up with Cline
+
+If you're using [Cline](https://github.com/cline-ai/cline) as your client, follow these steps:
+
+1. Install Cline if you haven't already:
+
+```bash
+npm install -g @cline-ai/cline
+```
+
+2. Configure MCP Client to use mcp-server-kubernetes by editing your config file (located at `~/.config/cline/config.json`):
 
 ```json
 {
@@ -19,14 +67,24 @@ https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 }
 ```
 
+3. Start Cline and use the Kubernetes server with Claude:
+
+```bash
+cline
+```
+
+4. Once in Cline, you can test the connection by asking Claude to interact with your Kubernetes cluster:
+
+```
+> Please list all pods in my Kubernetes cluster
+```
+
 The server will automatically connect to your current kubectl context. Make sure you have:
 
 1. kubectl installed and in your PATH
 2. A valid kubeconfig file with contexts configured
 3. Access to a Kubernetes cluster configured for kubectl (e.g. minikube, Rancher Desktop, GKE, etc.)
 4. Helm v3 installed and in your PATH (no Tiller required). Optional if you don't plan to use Helm.
-
-You can verify your connection by asking Claude to list your pods or create a test deployment.
 
 If you have errors open up a standard terminal and run `kubectl get pods` to see if you can connect to your cluster without credentials issues.
 
@@ -95,28 +153,48 @@ npx @modelcontextprotocol/inspector node build/index.js
 ├── src/
 │   ├── index.ts              # Main server implementation
 │   ├── types.ts              # Type re-exports
-│   ├── config/              # Configuration files
+│   ├── config/               # Configuration files
 │   │   ├── container-templates.ts  # Container configurations
-│   │   ├── server-config.ts       # Server settings
+│   │   ├── server-config.ts        # Server settings
 │   │   ├── deployment-config.ts    # Deployment schemas
-│   │   └── ...
-│   ├── models/              # Data models and schemas
-│   │   ├── response-schemas.ts    # API response schemas
-│   │   ├── resource-models.ts     # Resource models
-│   │   └── tool-models.ts         # Tool schemas
-│   ├── utils/               # Utility classes
-│   │   └── kubernetes-manager.ts  # K8s management
-│   ├── resources/           # Resource handlers
-│   │   └── handlers.ts      # Resource implementation
-│   └── tools/              # Tool implementations
-│       ├── list_pods.ts
-│       ├── list_services.ts
-│       ├── list_deployments.ts
-│       └── ...
-├── tests/                  # Test files
-│   └── unit.test.ts        # Unit tests
-│   └── helm.test.ts        # Helm tests
-└── ...
+│   │   ├── namespace-config.ts     # Namespace schemas
+│   │   └── cleanup-config.ts       # Resource cleanup configuration
+│   ├── models/               # Data models and schemas
+│   │   ├── response-schemas.ts     # API response schemas
+│   │   ├── resource-models.ts      # Resource models
+│   │   ├── tool-models.ts          # Tool schemas
+│   │   ├── helm-models.ts          # Helm operation schemas
+│   │   └── kubectl-models.ts       # Kubectl operation schemas
+│   ├── utils/                # Utility classes
+│   │   └── kubernetes-manager.ts   # K8s management
+│   ├── resources/            # Resource handlers
+│   │   └── handlers.ts       # Resource implementation
+│   └── tools/                # Tool implementations
+│       ├── list_pods.ts      # Pod listing operations
+│       ├── list_services.ts  # Service listing operations
+│       ├── list_deployments.ts # Deployment listing operations
+│       ├── list_nodes.ts     # Node listing operations
+│       ├── create_pod.ts     # Pod creation operations
+│       ├── delete_pod.ts     # Pod deletion operations
+│       ├── describe_pod.ts   # Pod description operations
+│       ├── get_logs.ts       # Container logs operations
+│       ├── get_events.ts     # Kubernetes events operations
+│       ├── helm-operations.ts # Helm chart operations
+│       └── kubectl-operations.ts # Kubectl utility operations
+├── tests/                    # Test files
+│   ├── unit.test.ts          # Unit tests for basic operations
+│   ├── helm.test.ts          # Helm-specific tests
+│   └── kubectl.test.ts       # Kubectl-specific tests
+├── .github/                  # GitHub configuration
+│   └── workflows/            # CI/CD workflows
+│       ├── ci.yml            # Continuous integration
+│       └── cd.yml            # Continuous deployment
+├── Dockerfile                # Docker container definition
+├── LICENSE                   # MIT license
+├── README.md                 # Project documentation
+├── package.json              # NPM package configuration
+├── tsconfig.json             # TypeScript configuration
+└── vitest.config.ts          # Test configuration
 ```
 
 ### Contributing
