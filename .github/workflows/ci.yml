@@ -87,7 +87,7 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           pr-number: ${{ github.event.pull_request.number }}
           message: |
             ### 🧪 Bun Test Summary
