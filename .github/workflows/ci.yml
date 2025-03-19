@@ -53,13 +53,19 @@ jobs:
       - name: Summarize test results
         id: test-summary
         run: |
-          total=$(grep -c '^ok\|^not ok' test-results.tap)
-          passed=$(grep -c '^ok' test-results.tap)
-          failed=$(grep -c '^not ok' test-results.tap)
+          if [[ ! -s test-results.tap ]]; then
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+          else
+            total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
+            passed=$(grep -c '^ok' test-results.tap || true)
+            failed=$(grep -c '^not ok' test-results.tap || true)
 
-          echo "total=$total" >> $GITHUB_OUTPUT
-          echo "passed=$passed" >> $GITHUB_OUTPUT
-          echo "failed=$failed" >> $GITHUB_OUTPUT
+            echo "total=${total:-0}" >> $GITHUB_OUTPUT
+            echo "passed=${passed:-0}" >> $GITHUB_OUTPUT
+            echo "failed=${failed:-0}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Add PR Comment with Test Summary
         uses: peter-evans/create-or-update-comment@v4
