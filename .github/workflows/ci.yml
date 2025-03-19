@@ -59,10 +59,10 @@ jobs:
           passed=$(grep -c '^ok' test-results.tap || true)
           failed=$(grep -c '^not ok' test-results.tap || true)
 
-          # Set environment variables for PR comment
-          echo "TOTAL_TESTS=${total:-0}" >> $GITHUB_ENV
-          echo "PASSED_TESTS=${passed:-0}" >> $GITHUB_ENV
-          echo "FAILED_TESTS=${failed:-0}" >> $GITHUB_ENV
+          # Set step outputs instead of env variables
+          echo "total=${total:-0}" >> $GITHUB_OUTPUT
+          echo "passed=${passed:-0}" >> $GITHUB_OUTPUT
+          echo "failed=${failed:-0}" >> $GITHUB_OUTPUT
 
           # Create step summary
           echo '### 🧪 Bun Test Summary' >> $GITHUB_STEP_SUMMARY
@@ -89,13 +89,13 @@ jobs:
           message: |
             ### 🧪 Bun Test Summary
 
-            | Metric             | Result                       |
-            |--------------------|------------------------------|
-            | Total Tests        | **${{ env.TOTAL_TESTS }}**  |
-            | ✅ Passed          | **${{ env.PASSED_TESTS }}** |
-            | ❌ Failed          | **${{ env.FAILED_TESTS }}** |
+            | Metric             | Result                          |
+            |--------------------|----------------------------------|
+            | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
+            | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
+            | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
 
-            ${{ env.FAILED_TESTS == '0' && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
+            ${{ steps.test-summary.outputs.failed == '0' && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
 
       - name: Verify build works
         run: bun run build
