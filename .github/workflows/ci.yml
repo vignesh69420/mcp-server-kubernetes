@@ -46,36 +46,35 @@ jobs:
           # Verify the change took effect
           grep "server:" ~/.kube/config
 
-      - name: Run Tests and generate results
+      - name: Run tests and generate TAP results
         run: |
-          # Your script will now use the modified kubeconfig
-          bun run test | tee test-results.txt
+          bun run test --reporter tap | tee test-results.tap
 
-      - name: Publish Test Results to Runner Summary
+      - name: Summarize test results
+        id: test-summary
         run: |
-          echo '### 🧪 Bun Test Results' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat test-results.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          total=$(grep -c '^ok\|^not ok' test-results.tap)
+          passed=$(grep -c '^ok' test-results.tap)
+          failed=$(grep -c '^not ok' test-results.tap)
 
-      - name: Read results into output
-        id: read-results
-        run: |
-          results=$(cat test-results.txt)
-          delimiter="$(openssl rand -hex 8)"
-          echo "test_results<<$delimiter" >> $GITHUB_OUTPUT
-          echo "$results" >> $GITHUB_OUTPUT
-          echo "$delimiter" >> $GITHUB_OUTPUT
+          echo "total=$total" >> $GITHUB_OUTPUT
+          echo "passed=$passed" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
 
-      - name: Add PR Comment with Test Results
+      - name: Add PR Comment with Test Summary
         uses: peter-evans/create-or-update-comment@v4
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ### 🧪 Bun Test Results
-            ```text
-            ${{ steps.read-results.outputs.test_results }}
-            ```
+            ### 🧪 Bun Test Summary
+
+            | Metric             | Result                       |
+            |--------------------|------------------------------|
+            | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
+            | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
+            | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
+
+            ${{ steps.test-summary.outputs.failed == 0 && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
 
       - name: Verify build works
         run: bun run build
