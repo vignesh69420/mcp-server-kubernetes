@@ -49,71 +49,19 @@ jobs:
           # Verify the change took effect
           grep "server:" ~/.kube/config
 
-      - name: Run tests and generate TAP results
+      - name: Run tests and generate JUnit report
         run: |
-          bun run test | tee test-results.txt
+          # Run tests with JUnit reporter
+          bun run test --reporter junit > junit-results.xml
 
-      - name: Process test results
-        id: test-summary
-        run: |
-          # Display test results in GitHub step summary
-          echo '### 🧪 Bun Test Results' >> $GITHUB_STEP_SUMMARY
-          echo '' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat test-results.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          # Check if there are any test failures
-          if grep -q "fail" test-results.txt; then
-            exit 1
-          fi
-
-      # - name: Process test results
-      #   id: test-summary
-      #   run: |
-      #     # Calculate test results
-      #     total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
-      #     passed=$(grep -c '^ok' test-results.tap || true)
-      #     failed=$(grep -c '^not ok' test-results.tap || true)
-
-      #     # Set step outputs instead of env variables
-      #     echo "total=${total:-0}" >> $GITHUB_OUTPUT
-      #     echo "passed=${passed:-0}" >> $GITHUB_OUTPUT
-      #     echo "failed=${failed:-0}" >> $GITHUB_OUTPUT
-
-      #     # Create step summary
-      #     echo '### 🧪 Bun Test Summary' >> $GITHUB_STEP_SUMMARY
-      #     echo '' >> $GITHUB_STEP_SUMMARY
-      #     echo '| Metric      | Result |' >> $GITHUB_STEP_SUMMARY
-      #     echo '|-------------|--------|' >> $GITHUB_STEP_SUMMARY
-      #     echo "| Total Tests | **${total:-0}** |" >> $GITHUB_STEP_SUMMARY
-      #     echo "| ✅ Passed   | **${passed:-0}** |" >> $GITHUB_STEP_SUMMARY
-      #     echo "| ❌ Failed   | **${failed:-0}** |" >> $GITHUB_STEP_SUMMARY
-      #     echo '' >> $GITHUB_STEP_SUMMARY
-
-      #     if [ "${failed:-0}" -eq "0" ]; then
-      #       echo '🎉 **All tests passed!**' >> $GITHUB_STEP_SUMMARY
-      #     else
-      #       echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
-      #       exit 1
-      #     fi
-      ####### Comment this part until we figure out how permission issues.
-      # - name: Comment on PR
-      #   if: github.event_name == 'pull_request'
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     github-token: ${{ github.token }}
-      #     pr-number: ${{ github.event.pull_request.number }}
-      #     message: |
-      #       ### 🧪 Bun Test Summary
-
-      #       | Metric             | Result                          |
-      #       |--------------------|----------------------------------|
-      #       | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
-      #       | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
-      #       | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
-
-      #       ${{ steps.test-summary.outputs.failed == '0' && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
+      - name: Test Report
+        uses: dorny/test-reporter@v2
+        if: success() || failure() # run this step even if previous step failed
+        with:
+          name: Bun Tests # Name of the check run which will be created
+          path: junit-results.xml # Path to test results
+          reporter: jest-junit # Format of test results (jest-junit is compatible with Bun's JUnit output)
+          fail-on-error: true # Fail the workflow if there are test failures
 
       - name: Verify build works
         run: bun run build
