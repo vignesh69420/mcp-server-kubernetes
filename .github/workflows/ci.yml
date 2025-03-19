@@ -52,6 +52,7 @@ jobs:
           bun run test --reporter tap | tee test-results.tap
 
       - name: Summarize test results
+        id: test-summary
         run: |
           total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
           passed=$(grep -c '^ok' test-results.tap || true)
@@ -71,6 +72,21 @@ jobs:
           else
             echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Comment on PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### 🧪 Bun Test Summary
+
+            | Metric             | Result                       |
+            |--------------------|------------------------------|
+            | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
+            | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
+            | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
+
+            ${{ steps.test-summary.outputs.failed == 0 && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
 
       - name: Verify build works
         run: bun run build
