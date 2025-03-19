@@ -51,13 +51,20 @@ jobs:
         run: |
           bun run test --reporter tap | tee test-results.tap
 
-      - name: Summarize test results
+      - name: Process test results
         id: test-summary
         run: |
+          # Calculate test results
           total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
           passed=$(grep -c '^ok' test-results.tap || true)
           failed=$(grep -c '^not ok' test-results.tap || true)
 
+          # Set environment variables for PR comment
+          echo "TOTAL_TESTS=${total:-0}" >> $GITHUB_ENV
+          echo "PASSED_TESTS=${passed:-0}" >> $GITHUB_ENV
+          echo "FAILED_TESTS=${failed:-0}" >> $GITHUB_ENV
+
+          # Create step summary
           echo '### 🧪 Bun Test Summary' >> $GITHUB_STEP_SUMMARY
           echo '' >> $GITHUB_STEP_SUMMARY
           echo '| Metric      | Result |' >> $GITHUB_STEP_SUMMARY
@@ -71,6 +78,7 @@ jobs:
             echo '🎉 **All tests passed!**' >> $GITHUB_STEP_SUMMARY
           else
             echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
 
       - name: Comment on PR
@@ -83,11 +91,11 @@ jobs:
 
             | Metric             | Result                       |
             |--------------------|------------------------------|
-            | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
-            | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
-            | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
+            | Total Tests        | **${{ env.TOTAL_TESTS }}**  |
+            | ✅ Passed          | **${{ env.PASSED_TESTS }}** |
+            | ❌ Failed          | **${{ env.FAILED_TESTS }}** |
 
-            ${{ steps.test-summary.outputs.failed == 0 && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
+            ${{ env.FAILED_TESTS == '0' && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
 
       - name: Verify build works
         run: bun run build
