@@ -51,80 +51,52 @@ jobs:
 
       - name: Run tests and generate TAP results
         run: |
-          bun run test --reporter tap | tee test-results.tap
+          bun run test | tee test-results.txt
 
       - name: Process test results
         id: test-summary
         run: |
-          # Calculate test results
-          total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
-          passed=$(grep -c '^ok' test-results.tap || true)
-          failed=$(grep -c '^not ok' test-results.tap || true)
-
-          # Set step outputs instead of env variables
-          echo "total=${total:-0}" >> $GITHUB_OUTPUT
-          echo "passed=${passed:-0}" >> $GITHUB_OUTPUT
-          echo "failed=${failed:-0}" >> $GITHUB_OUTPUT
-
-          # Create step summary
-          echo '### 🧪 Bun Test Summary' >> $GITHUB_STEP_SUMMARY
+          # Display test results in GitHub step summary
+          echo '### 🧪 Bun Test Results' >> $GITHUB_STEP_SUMMARY
           echo '' >> $GITHUB_STEP_SUMMARY
-          echo '| Metric      | Result |' >> $GITHUB_STEP_SUMMARY
-          echo '|-------------|--------|' >> $GITHUB_STEP_SUMMARY
-          echo "| Total Tests | **${total:-0}** |" >> $GITHUB_STEP_SUMMARY
-          echo "| ✅ Passed   | **${passed:-0}** |" >> $GITHUB_STEP_SUMMARY
-          echo "| ❌ Failed   | **${failed:-0}** |" >> $GITHUB_STEP_SUMMARY
-          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat test-results.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
-          # Extract and display detailed test results
-          echo '### Detailed Test Results' >> $GITHUB_STEP_SUMMARY
-          echo '' >> $GITHUB_STEP_SUMMARY
-          echo '| Status | Test Name | Duration |' >> $GITHUB_STEP_SUMMARY
-          echo '|--------|-----------|----------|' >> $GITHUB_STEP_SUMMARY
-
-          # Parse the TAP output for test details
-          while IFS= read -r line; do
-            if [[ $line =~ ^(ok|not ok)\ +([0-9]+)\ +(.*) ]]; then
-              status="${BASH_REMATCH[1]}"
-              test_num="${BASH_REMATCH[2]}"
-              test_name="${BASH_REMATCH[3]}"
-              
-              # Extract duration if available (assuming it's in a format like "# duration 123ms")
-              duration_line=$(grep -A 5 "^$status $test_num $test_name" test-results.tap | grep -E "# duration|# time" | head -n 1 || echo "# duration 0ms")
-              duration=$(echo "$duration_line" | sed -E 's/.*# (duration|time) ([0-9]+ms|[0-9]+\.[0-9]+ms|[0-9]+\.[0-9]+s).*/\2/' || echo "N/A")
-              
-              # Format the status with an emoji
-              if [[ $status == "ok" ]]; then
-                emoji_status="✅ PASS"
-              else
-                emoji_status="❌ FAIL"
-              fi
-              
-              # Clean test name (remove duration or time info if included in name)
-              clean_name=$(echo "$test_name" | sed -E 's/ # (duration|time) [0-9]+(\.[0-9]+)?(ms|s)$//')
-              
-              echo "| $emoji_status | $clean_name | $duration |" >> $GITHUB_STEP_SUMMARY
-            fi
-          done < test-results.tap
-
-          # Add separator before summary
-          echo '' >> $GITHUB_STEP_SUMMARY
-
-          if [ "${failed:-0}" -eq "0" ]; then
-            echo '🎉 **All tests passed!**' >> $GITHUB_STEP_SUMMARY
-          else
-            echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
-            
-            # Show details of failing tests
-            echo '' >> $GITHUB_STEP_SUMMARY
-            echo '### Failing Test Details' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            grep -A 10 "^not ok" test-results.tap >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            
+          # Check if there are any test failures
+          if grep -q "fail" test-results.txt; then
             exit 1
           fi
 
+      # - name: Process test results
+      #   id: test-summary
+      #   run: |
+      #     # Calculate test results
+      #     total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
+      #     passed=$(grep -c '^ok' test-results.tap || true)
+      #     failed=$(grep -c '^not ok' test-results.tap || true)
+
+      #     # Set step outputs instead of env variables
+      #     echo "total=${total:-0}" >> $GITHUB_OUTPUT
+      #     echo "passed=${passed:-0}" >> $GITHUB_OUTPUT
+      #     echo "failed=${failed:-0}" >> $GITHUB_OUTPUT
+
+      #     # Create step summary
+      #     echo '### 🧪 Bun Test Summary' >> $GITHUB_STEP_SUMMARY
+      #     echo '' >> $GITHUB_STEP_SUMMARY
+      #     echo '| Metric      | Result |' >> $GITHUB_STEP_SUMMARY
+      #     echo '|-------------|--------|' >> $GITHUB_STEP_SUMMARY
+      #     echo "| Total Tests | **${total:-0}** |" >> $GITHUB_STEP_SUMMARY
+      #     echo "| ✅ Passed   | **${passed:-0}** |" >> $GITHUB_STEP_SUMMARY
+      #     echo "| ❌ Failed   | **${failed:-0}** |" >> $GITHUB_STEP_SUMMARY
+      #     echo '' >> $GITHUB_STEP_SUMMARY
+
+      #     if [ "${failed:-0}" -eq "0" ]; then
+      #       echo '🎉 **All tests passed!**' >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
+      #       exit 1
+      #     fi
       ####### Comment this part until we figure out how permission issues.
       # - name: Comment on PR
       #   if: github.event_name == 'pull_request'
