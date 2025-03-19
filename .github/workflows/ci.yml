@@ -47,7 +47,7 @@ jobs:
       - name: Run Tests and generate results
         run: |
           # Your script will now use the modified kubeconfig
-          bun run test | | tee test-results.txt
+          bun run test | tee test-results.txt
 
       - name: Publish Test Results to Runner Summary
         run: |
