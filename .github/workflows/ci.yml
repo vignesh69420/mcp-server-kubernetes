@@ -76,29 +76,72 @@ jobs:
           echo "| ❌ Failed   | **${failed:-0}** |" >> $GITHUB_STEP_SUMMARY
           echo '' >> $GITHUB_STEP_SUMMARY
 
+          # Extract and display detailed test results
+          echo '### Detailed Test Results' >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '| Status | Test Name | Duration |' >> $GITHUB_STEP_SUMMARY
+          echo '|--------|-----------|----------|' >> $GITHUB_STEP_SUMMARY
+
+          # Parse the TAP output for test details
+          while IFS= read -r line; do
+            if [[ $line =~ ^(ok|not ok)\ +([0-9]+)\ +(.*) ]]; then
+              status="${BASH_REMATCH[1]}"
+              test_num="${BASH_REMATCH[2]}"
+              test_name="${BASH_REMATCH[3]}"
+              
+              # Extract duration if available (assuming it's in a format like "# duration 123ms")
+              duration_line=$(grep -A 5 "^$status $test_num $test_name" test-results.tap | grep -E "# duration|# time" | head -n 1 || echo "# duration 0ms")
+              duration=$(echo "$duration_line" | sed -E 's/.*# (duration|time) ([0-9]+ms|[0-9]+\.[0-9]+ms|[0-9]+\.[0-9]+s).*/\2/' || echo "N/A")
+              
+              # Format the status with an emoji
+              if [[ $status == "ok" ]]; then
+                emoji_status="✅ PASS"
+              else
+                emoji_status="❌ FAIL"
+              fi
+              
+              # Clean test name (remove duration or time info if included in name)
+              clean_name=$(echo "$test_name" | sed -E 's/ # (duration|time) [0-9]+(\.[0-9]+)?(ms|s)$//')
+              
+              echo "| $emoji_status | $clean_name | $duration |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done < test-results.tap
+
+          # Add separator before summary
+          echo '' >> $GITHUB_STEP_SUMMARY
+
           if [ "${failed:-0}" -eq "0" ]; then
             echo '🎉 **All tests passed!**' >> $GITHUB_STEP_SUMMARY
           else
             echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
+            
+            # Show details of failing tests
+            echo '' >> $GITHUB_STEP_SUMMARY
+            echo '### Failing Test Details' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -A 10 "^not ok" test-results.tap >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            
             exit 1
           fi
 
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          github-token: ${{ github.token }}
-          pr-number: ${{ github.event.pull_request.number }}
-          message: |
-            ### 🧪 Bun Test Summary
+      ####### Comment this part until we figure out how permission issues.
+      # - name: Comment on PR
+      #   if: github.event_name == 'pull_request'
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     github-token: ${{ github.token }}
+      #     pr-number: ${{ github.event.pull_request.number }}
+      #     message: |
+      #       ### 🧪 Bun Test Summary
 
-            | Metric             | Result                          |
-            |--------------------|----------------------------------|
-            | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
-            | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
-            | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
+      #       | Metric             | Result                          |
+      #       |--------------------|----------------------------------|
+      #       | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
+      #       | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
+      #       | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
 
-            ${{ steps.test-summary.outputs.failed == '0' && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
+      #       ${{ steps.test-summary.outputs.failed == '0' && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
 
       - name: Verify build works
         run: bun run build
