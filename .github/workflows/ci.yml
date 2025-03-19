@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +55,25 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat test-results.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Read results into output
+        id: read-results
+        run: |
+          results=$(cat test-results.txt)
+          delimiter="$(openssl rand -hex 8)"
+          echo "test_results<<$delimiter" >> $GITHUB_OUTPUT
+          echo "$results" >> $GITHUB_OUTPUT
+          echo "$delimiter" >> $GITHUB_OUTPUT
+
+      - name: Add PR Comment with Test Results
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### 🧪 Bun Test Results
+            ```text
+            ${{ steps.read-results.outputs.test_results }}
+            ```
 
       - name: Verify build works
         run: bun run build
