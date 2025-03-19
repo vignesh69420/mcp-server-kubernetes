@@ -51,36 +51,25 @@ jobs:
           bun run test --reporter tap | tee test-results.tap
 
       - name: Summarize test results
-        id: test-summary
         run: |
-          if [[ ! -s test-results.tap ]]; then
-            echo "total=0" >> $GITHUB_OUTPUT
-            echo "passed=0" >> $GITHUB_OUTPUT
-            echo "failed=0" >> $GITHUB_OUTPUT
+          total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
+          passed=$(grep -c '^ok' test-results.tap || true)
+          failed=$(grep -c '^not ok' test-results.tap || true)
+
+          echo '### 🧪 Bun Test Summary' >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '| Metric      | Result |' >> $GITHUB_STEP_SUMMARY
+          echo '|-------------|--------|' >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | **${total:-0}** |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✅ Passed   | **${passed:-0}** |" >> $GITHUB_STEP_SUMMARY
+          echo "| ❌ Failed   | **${failed:-0}** |" >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+
+          if [ "${failed:-0}" -eq "0" ]; then
+            echo '🎉 **All tests passed!**' >> $GITHUB_STEP_SUMMARY
           else
-            total=$(grep -c -E '^(ok|not ok)' test-results.tap || true)
-            passed=$(grep -c '^ok' test-results.tap || true)
-            failed=$(grep -c '^not ok' test-results.tap || true)
-
-            echo "total=${total:-0}" >> $GITHUB_OUTPUT
-            echo "passed=${passed:-0}" >> $GITHUB_OUTPUT
-            echo "failed=${failed:-0}" >> $GITHUB_OUTPUT
+            echo '⚠️ **Some tests failed. Please review the details.**' >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Add PR Comment with Test Summary
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ### 🧪 Bun Test Summary
-
-            | Metric             | Result                       |
-            |--------------------|------------------------------|
-            | Total Tests        | **${{ steps.test-summary.outputs.total }}**  |
-            | ✅ Passed          | **${{ steps.test-summary.outputs.passed }}** |
-            | ❌ Failed          | **${{ steps.test-summary.outputs.failed }}** |
-
-            ${{ steps.test-summary.outputs.failed == 0 && '🎉 All tests passed!' || '⚠️ Some tests failed, please check the logs.' }}
 
       - name: Verify build works
         run: bun run build
