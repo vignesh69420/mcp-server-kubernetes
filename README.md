@@ -35,16 +35,6 @@ bun install -g mcp-server-kubernetes
 npx mcp-server-kubernetes
 ```
 
-### Prerequisites
-
-Before using the server, make sure you have:
-
-1. Node.js 18 or higher installed
-2. kubectl installed and in your PATH
-3. A valid kubeconfig file with contexts configured
-4. Access to a Kubernetes cluster (e.g., minikube, Docker Desktop, GKE, EKS, etc.)
-5. Helm v3 installed (optional, only if you plan to use Helm charts)
-
 ## Usage with Claude Desktop
 
 ```json
