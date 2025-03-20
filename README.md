@@ -95,24 +95,6 @@ cd mcp-server-kubernetes
 bun install
 ```
 
-## If you've cloned the repository and want to run a local version
-
-```json
-{
-  "mcpServers": {
-    "mcp-server-kubernetes": {
-      "command": "npx",
-      "args": [
-        "--directory",
-        "/path/to/your/mcp-server-kubernetes",
-        "run",
-        "mcp-server-kubernetes"
-      ]
-    }
-  }
-}
-```
-
 ### Development Workflow
 
 1. Start the server in development mode (watches for file changes):
@@ -138,6 +120,19 @@ bun run build
 ```bash
 npx @modelcontextprotocol/inspector node build/index.js
 # Follow further instructions on terminal for Inspector link
+```
+
+5. Local testing with Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "mcp-server-kubernetes": {
+      "command": "node",
+      "args": ["/path/to/your/mcp-server-kubernetes/dist/index.js"]
+    }
+  }
+}
 ```
 
 5. Local testing with [mcp-chat](https://github.com/Flux159/mcp-chat)
