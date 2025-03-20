@@ -37,6 +37,8 @@ The server will automatically connect to your current kubectl context. Make sure
 3. Access to a Kubernetes cluster configured for kubectl (e.g. minikube, Rancher Desktop, GKE, etc.)
 4. Helm v3 installed and in your PATH (no Tiller required). Optional if you don't plan to use Helm.
 
+You can verify your connection by asking Claude to list your pods or create a test deployment.
+
 If you have errors open up a standard terminal and run `kubectl get pods` to see if you can connect to your cluster without credentials issues.
 
 ## Usage with mcp-chat
