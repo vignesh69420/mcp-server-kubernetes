@@ -95,6 +95,24 @@ cd mcp-server-kubernetes
 bun install
 ```
 
+## If you've cloned the repository and want to run a local version
+
+```json
+{
+  "mcpServers": {
+    "mcp-server-kubernetes": {
+      "command": "npx",
+      "args": [
+        "--directory",
+        "/path/to/your/mcp-server-kubernetes",
+        "run",
+        "mcp-server-kubernetes"
+      ]
+    }
+  }
+}
+```
+
 ### Development Workflow
 
 1. Start the server in development mode (watches for file changes):
