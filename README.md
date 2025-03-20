@@ -21,6 +21,24 @@ https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 }
 ```
 
+## If you've cloned the repository and want to run a local version
+
+```json
+{
+  "mcpServers": {
+    "mcp-server-kubernetes": {
+      "command": "npx",
+      "args": [
+        "--directory",
+        "/path/to/your/mcp-server-kubernetes/dist/index.js",
+        "run",
+        "mcp-server-kubernetes"
+      ]
+    }
+  }
+}
+```
+
 The server will automatically connect to your current kubectl context. Make sure you have:
 
 1. kubectl installed and in your PATH
