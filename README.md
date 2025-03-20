@@ -44,17 +44,7 @@ Before using the server, make sure you have:
 4. Access to a Kubernetes cluster (e.g., minikube, Docker Desktop, GKE, EKS, etc.)
 5. Helm v3 installed (optional, only if you plan to use Helm charts)
 
-### Setting up with Cline
-
-If you're using [Cline](https://github.com/cline-ai/cline) as your client, follow these steps:
-
-1. Install Cline if you haven't already:
-
-```bash
-npm install -g @cline-ai/cline
-```
-
-2. Configure MCP Client to use mcp-server-kubernetes by editing your config file (located at `~/.config/cline/config.json`):
+## Usage with Claude Desktop
 
 ```json
 {
@@ -65,18 +55,6 @@ npm install -g @cline-ai/cline
     }
   }
 }
-```
-
-3. Start Cline and use the Kubernetes server with Claude:
-
-```bash
-cline
-```
-
-4. Once in Cline, you can test the connection by asking Claude to interact with your Kubernetes cluster:
-
-```
-> Please list all pods in my Kubernetes cluster
 ```
 
 The server will automatically connect to your current kubectl context. Make sure you have:
