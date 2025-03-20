@@ -17,24 +17,6 @@ https://github.com/user-attachments/assets/f25f8f4e-4d04-479b-9ae0-5dac452dd2ed
 
 <a href="https://glama.ai/mcp/servers/w71ieamqrt"><img width="380" height="200" src="https://glama.ai/mcp/servers/w71ieamqrt/badge" /></a>
 
-## Installation
-
-You can install the MCP Server for Kubernetes using npm or yarn:
-
-```bash
-# Using npm
-npm install -g mcp-server-kubernetes
-
-# Using yarn
-yarn global add mcp-server-kubernetes
-
-# Using bun
-bun install -g mcp-server-kubernetes
-
-# Run directly with npx (no installation needed)
-npx mcp-server-kubernetes
-```
-
 ## Usage with Claude Desktop
 
 ```json
