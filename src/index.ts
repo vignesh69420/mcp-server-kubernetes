@@ -42,6 +42,7 @@ import { serverConfig } from "./config/server-config.js";
 import { createDeploymentSchema } from "./config/deployment-config.js";
 import { listNamespacesSchema } from "./config/namespace-config.js";
 import { cleanupSchema } from "./config/cleanup-config.js";
+import { startSSEServer } from "./utils/sse.js";
 
 const k8sManager = new KubernetesManager();
 
@@ -287,8 +288,12 @@ server.setRequestHandler(
   resourceHandlers.readResource
 );
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+if (process.env.ENABLE_UNSAFE_SSE_TRANSPORT) {
+  startSSEServer(server);
+} else {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
 ["SIGINT", "SIGTERM"].forEach((signal) => {
   process.on(signal, async () => {
