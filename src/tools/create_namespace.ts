@@ -1,6 +1,5 @@
 import { KubernetesManager } from "../types.js";
 import * as k8s from "@kubernetes/client-node";
-import {ContainerTemplate} from "../config/container-templates.js";
 
 export const createNamespaceSchema = {
     name: "create_namespace",

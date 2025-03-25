@@ -59,9 +59,9 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
-      createNamespaceSchema,
       cleanupSchema,
       createDeploymentSchema,
+      createNamespaceSchema,
       createPodSchema,
       deletePodSchema,
       describePodSchema,
