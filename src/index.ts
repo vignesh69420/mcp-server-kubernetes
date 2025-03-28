@@ -55,6 +55,7 @@ import {
 } from "./tools/port_forward.js";
 import { deleteDeployment } from "./tools/delete_deployment.js";
 import { createDeployment } from "./tools/create_deployment.js";
+import {scaleDeployment,scaleDeploymentSchema} from "./tools/scale_deployment.js"
 import {
   describeDeployment,
   describeDeploymentSchema,
@@ -95,6 +96,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       upgradeHelmChartSchema,
       PortForwardSchema,
       StopPortForwardSchema,
+      scaleDeploymentSchema,
     ],
   };
 });
@@ -345,6 +347,17 @@ server.setRequestHandler(
             input as {
               name: string;
               namespace: string;
+            }
+          );
+        }
+        
+        case "scale_deployment" : {
+          return await scaleDeployment(
+            k8sManager,
+            input as {
+              name : string,
+              namespace : string,
+             replicas : number
             }
           );
         }

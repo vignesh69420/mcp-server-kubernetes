@@ -23,6 +23,8 @@ import {
   ListDeploymentsResponseSchema,
 } from "../src/models/response-schemas.js";
 
+import {scaleDeployment,scaleDeploymentSchema} from "../src/tools/scale_deployment.js"
+import { scaleDeploymentResposneSchema } from "../src/models/response-schemas.js";
 /**
  * Utility function to create a promise that resolves after specified milliseconds
  * Useful for waiting between operations or ensuring async operations complete
@@ -576,6 +578,24 @@ describe("kubernetes server operations", () => {
         expect(
           deployments.deployments.some((d: any) => d.name === deploymentName)
         ).toBe(true);
+        
+        const scaleDeploymentResult = await client.request(
+          {
+            method : "tools/call",
+            params : {
+              name : "scale_deployment",
+              arguments : {
+                name : deploymentName,
+                namespace : "default",
+                replicas : 2
+              },
+            },
+          },
+          scaleDeploymentResposneSchema
+        );
+
+        expect(scaleDeploymentResult.content[0].success).toBe(true);
+        expect(scaleDeploymentResult.content[0].message).toContain(`Scaled deployment ${deploymentName} to 2 replicas`);
 
         // Cleanup
         await client.request(

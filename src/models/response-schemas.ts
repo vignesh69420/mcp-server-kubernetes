@@ -66,3 +66,12 @@ export const PortForwardResponseSchema = z.object({
     })
   ),
 });
+
+export const scaleDeploymentResposneSchema = z.object({
+  content : z.array(
+    z.object({
+      success: z.boolean(),
+      message: z.string(),
+    })
+  ),
+});
