@@ -259,6 +259,7 @@ describe("kubernetes cronjob operations", () => {
 
       expect(deletecronjobresult.content[0].success).toBe(true)
       expect(deletecronjobresult.content[0].message).toContain(`Deleted cronjob ${cronJobName} in namespace ${testNamespace}.`)
+      
 
       // No need to test get_job_logs since we don't have any jobs in this controlled test
 
