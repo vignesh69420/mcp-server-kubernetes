@@ -32,6 +32,7 @@ import {
 } from "./tools/create_namespace.js";
 import { createPod, createPodSchema } from "./tools/create_pod.js";
 import { createCronJob, createCronJobSchema } from "./tools/create_cronjob.js";
+import { DeleteCronJob,DeleteCronJobSchema} from "./tools/delete_cronjob.js";
 import { deletePod, deletePodSchema } from "./tools/delete_pod.js";
 import { describePod, describePodSchema } from "./tools/describe_pod.js";
 import { getLogs, getLogsSchema } from "./tools/get_logs.js";
@@ -107,6 +108,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       PortForwardSchema,
       StopPortForwardSchema,
       scaleDeploymentSchema,
+      DeleteCronJobSchema,
     ],
   };
 });
@@ -174,6 +176,15 @@ server.setRequestHandler(
           );
         }
 
+        case "delete_cronjob" : {
+          return await DeleteCronJob(
+            k8sManager,
+            input as {
+              name : string;
+              namespace : string
+            }
+          );
+        }
         case "delete_pod": {
           return await deletePod(
             k8sManager,
