@@ -50,6 +50,7 @@ import { KubernetesManager } from "./types.js";
 import { serverConfig } from "./config/server-config.js";
 import { createDeploymentSchema } from "./config/deployment-config.js";
 import { listNamespacesSchema } from "./config/namespace-config.js";
+import { deleteNamespace, deleteNamespaceSchema } from "./tools/delete_namespace.js";
 import { cleanupSchema } from "./config/cleanup-config.js";
 import { startSSEServer } from "./utils/sse.js";
 import {
@@ -58,7 +59,7 @@ import {
   stopPortForward,
   StopPortForwardSchema,
 } from "./tools/port_forward.js";
-import { deleteDeployment } from "./tools/delete_deployment.js";
+import { deleteDeployment, deleteDeploymentSchema } from "./tools/delete_deployment.js";
 import { createDeployment } from "./tools/create_deployment.js";
 import {scaleDeployment,scaleDeploymentSchema} from "./tools/scale_deployment.js"
 import {
@@ -86,6 +87,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       createPodSchema,
       createCronJobSchema,
       deletePodSchema,
+      deleteDeploymentSchema,
+      deleteNamespaceSchema,
       describeCronJobSchema,
       describePodSchema,
       describeDeploymentSchema,
@@ -375,6 +378,16 @@ server.setRequestHandler(
             k8sManager,
             input as {
               id: string;
+            }
+          );
+        }
+
+        case "delete_namespace": {
+          return await deleteNamespace(
+            k8sManager,
+            input as {
+              name: string;
+              ignoreNotFound?: boolean;
             }
           );
         }

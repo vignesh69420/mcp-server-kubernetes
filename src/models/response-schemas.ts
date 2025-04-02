@@ -10,6 +10,10 @@ export const CreateNamespaceResponseSchema = z.object({
   content: z.array(ToolResponseContent),
 });
 
+export const DeleteNamespaceResponseSchema = z.object({
+  content: z.array(ToolResponseContent),
+});
+
 export const CreatePodResponseSchema = z.object({
   content: z.array(ToolResponseContent),
 });
