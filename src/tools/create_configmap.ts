@@ -2,7 +2,7 @@ import { KubernetesManager } from "../types.js";
 import * as k8s from "@kubernetes/client-node";
 export const CreateConfigMapSchema = {
     name : "create_configmap",
-    descrption : "Create a new Kubernetes ConfigMap",
+    description : "Create a new Kubernetes ConfigMap",
     inputSchema : {
         type : "object",
         properties : {
