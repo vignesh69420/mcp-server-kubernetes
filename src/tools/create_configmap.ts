@@ -28,7 +28,7 @@ export async function createConfigMap(
     try {
         const configmap : k8s.V1ConfigMap = {
             apiVersion : "core/v1",
-            kind : "Configmap",
+            kind : "ConfigMap",
             metadata : {
                 name : input.name,
                 namespace : input.namespace,
