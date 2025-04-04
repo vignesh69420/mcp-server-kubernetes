@@ -57,7 +57,7 @@ async function sleep(ms: number): Promise<void> {
                       params: {
                         name: "create_namespace",
                         arguments: {
-                          name: testNamespace,
+                          name: "default",
                         },
                       },
                     },
@@ -99,7 +99,7 @@ async function sleep(ms: number): Promise<void> {
               name : "create_configmap",
               arguments : {
                 name : testName,
-                namespace : testNamespace,
+                namespace : "default",
                 data : testdata,
               },
             },

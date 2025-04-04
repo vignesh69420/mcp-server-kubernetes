@@ -27,8 +27,11 @@ export async function createConfigMap(
 ): Promise<{ content: { success: boolean; message: string}[] }> {
     try {
         const configmap : k8s.V1ConfigMap = {
-            apiVersion : "core/v1",
+            apiVersion : "v1",
             kind : "ConfigMap",
+            binaryData : undefined,
+            data : input.data,
+            immutable : false,
             metadata : {
                 name : input.name,
                 namespace : input.namespace,
@@ -37,7 +40,6 @@ export async function createConfigMap(
                     app : input.name,
                 },
             },
-            data : input.data,
         }
         const response = await k8sManager.getCoreApi().createNamespacedConfigMap(input.namespace, configmap);
         if(response.response?.statusCode !== undefined && (response.response.statusCode == 200 || response.response.statusCode == 201 || response.response.statusCode == 202)) {
