@@ -96,9 +96,12 @@ async function sleep(ms: number): Promise<void> {
           {
             method : "tools/call",
             params : {
-              name : testName,
-              namespace : testNamespace,
-              data : testdata,
+              name : "create_configmap",
+              arguments : {
+                name : testName,
+                namespace : testNamespace,
+                data : testdata,
+              },
             },
           },
           CreateConfigMapResponseSchema,
