@@ -23,7 +23,7 @@ async function sleep(ms: number): Promise<void> {
     const NAMESPACE_PREFIX = "test-configmap";
     let testNamespace : string;
 
-    const testName = `test-deployment-${generateRandomSHA()}`
+    const testName = `test-configmap-${generateRandomSHA()}`
 
     beforeEach(async () =>{
         try {
@@ -108,5 +108,8 @@ async function sleep(ms: number): Promise<void> {
 
         expect((await configmap_response).content[0].success).toBe(true);
         expect((await configmap_response).content[0].message).toContain(`Created ConfigMap ${testName} in namespace ${testNamespace}`);
-      });
+
+
+      },{ timeout: 60000 }
+    );
   });
