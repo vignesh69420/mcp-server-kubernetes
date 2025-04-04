@@ -113,6 +113,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       StopPortForwardSchema,
       scaleDeploymentSchema,
       DeleteCronJobSchema,
+      CreateConfigMapSchema,
     ],
   };
 });

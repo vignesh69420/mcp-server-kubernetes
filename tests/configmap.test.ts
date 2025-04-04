@@ -57,7 +57,7 @@ async function sleep(ms: number): Promise<void> {
                       params: {
                         name: "create_namespace",
                         arguments: {
-                          name: "default",
+                          name: testNamespace,
                         },
                       },
                     },
@@ -99,7 +99,7 @@ async function sleep(ms: number): Promise<void> {
               name : "create_configmap",
               arguments : {
                 name : testName,
-                namespace : "default",
+                namespace : testNamespace,
                 data : testdata,
               },
             },
@@ -108,7 +108,7 @@ async function sleep(ms: number): Promise<void> {
         );
 
         await sleep(2000); 
-        console.log((await configmap_response).content[0].message);
+        console.log((await configmap_response).content[0]);
         expect((await configmap_response).content[0].success).toBe(true);
         expect((await configmap_response).content[0].message).toContain(`Created ConfigMap ${testName} in namespace ${testNamespace}`);
 
