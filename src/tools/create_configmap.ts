@@ -40,7 +40,7 @@ export async function createConfigMap(
             data : input.data,
         }
         const response = await k8sManager.getCoreApi().createNamespacedConfigMap(input.namespace, configmap);
-        if(response.response?.statusCode !== undefined && (response.response.statusCode == 200 || 201 || 202)){
+        if(response.response?.statusCode !== undefined && (response.response.statusCode == 200 || response.response.statusCode == 201 || response.response.statusCode == 202)) {
             return {
                 content : [
                     {
