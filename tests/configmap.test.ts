@@ -107,7 +107,8 @@ async function sleep(ms: number): Promise<void> {
           CreateConfigMapResponseSchema,
         );
 
-        await sleep(2000); // Wait for the configmap to be created
+        await sleep(2000); 
+        console.log((await configmap_response).content[0].message);
         expect((await configmap_response).content[0].success).toBe(true);
         expect((await configmap_response).content[0].message).toContain(`Created ConfigMap ${testName} in namespace ${testNamespace}`);
 
