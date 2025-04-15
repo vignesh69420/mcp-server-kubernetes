@@ -94,6 +94,7 @@ describe("kubectl operations", () => {
   });
 
   test("list api resources", async () => {
+    await sleep(1000);
     const result = await client.request(
       {
         method: "tools/call",
