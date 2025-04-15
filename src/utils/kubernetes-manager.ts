@@ -19,7 +19,7 @@ export class KubernetesManager {
   }
 
   /**
-   * Set the current context to the past context name.
+   * Set the current context to the desired context name.
    * 
    * @param contextName 
    */
