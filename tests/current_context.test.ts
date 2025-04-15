@@ -23,8 +23,8 @@ describe("kubernetes current context operations", () => {
   beforeEach(async () => {
     try {
       transport = new StdioClientTransport({
-        command: "node",
-        args: ["dist/index.js"],
+        command: "bun",
+        args: ["src/index.ts"],
         stderr: "pipe",
       });
 

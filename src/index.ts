@@ -73,7 +73,7 @@ import { getCurrentContext, getCurrentContextSchema } from "./tools/get_current_
 import { setCurrentContext, setCurrentContextSchema } from "./tools/set_current_context.js";
 
 // Check if non-destructive tools only mode is enabled
-const nonDestructiveTools = process.env.ALLOW_ONLY_NON_DESCTRUCTIVE_TOOLS === 'true';
+const nonDestructiveTools = process.env.ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS === 'true';
 
 const k8sManager = new KubernetesManager();
 
@@ -135,7 +135,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     CreateConfigMapSchema,
   ];
 
-  // Filter out destructive tools if ALLOW_ONLY_NON_DESCTRUCTIVE_TOOLS is set to 'true'
+  // Filter out destructive tools if ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS is set to 'true'
   const tools = nonDestructiveTools
     ? allTools.filter(tool => !destructiveTools.some(dt => dt.name === tool.name))
     : allTools;

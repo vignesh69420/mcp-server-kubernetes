@@ -25,8 +25,8 @@ describe("kubernetes set current context operations", () => {
   beforeEach(async () => {
     try {
       transport = new StdioClientTransport({
-        command: "node",
-        args: ["dist/index.js"],
+        command: "bun",
+        args: ["src/index.ts"],
         stderr: "pipe",
       });
 
@@ -116,7 +116,7 @@ describe("kubernetes set current context operations", () => {
     );
 
     const contextsData = JSON.parse(contextsResult.content[0].text);
-    
+
     // Find a context that is not the current one
     const otherContext = contextsData.contexts.find(
       (context: any) => !context.isCurrent
@@ -129,7 +129,7 @@ describe("kubernetes set current context operations", () => {
     }
 
     console.log(`Setting current context to: ${otherContext.name}`);
-    
+
     // Set the current context to a different one
     const result = await client.request(
       {
