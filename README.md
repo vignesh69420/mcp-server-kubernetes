@@ -87,6 +87,8 @@ npx mcp-chat --config "%APPDATA%\Claude\claude_desktop_config.json"
 
 ## Local Development
 
+Make sure that you have [bun installed](https://bun.sh/docs/installation). Clone the repo & install dependencies:
+
 ```bash
 git clone https://github.com/Flux159/mcp-server-kubernetes.git
 cd mcp-server-kubernetes
@@ -136,7 +138,7 @@ npx @modelcontextprotocol/inspector node dist/index.js
 6. Local testing with [mcp-chat](https://github.com/Flux159/mcp-chat)
 
 ```bash
-npm run chat
+bun run chat
 ```
 
 ## Contributing
