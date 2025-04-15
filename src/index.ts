@@ -68,6 +68,7 @@ import {
   describeDeploymentSchema,
 } from "./tools/describe_deployment.js";
 import { createConfigMap, CreateConfigMapSchema } from "./tools/create_configmap.js";
+import { createService, createServiceSchema } from "./tools/create_service.js";
 import { listContexts, listContextsSchema } from "./tools/list_contexts.js";
 import { getCurrentContext, getCurrentContextSchema } from "./tools/get_current_context.js";
 import { setCurrentContext, setCurrentContextSchema } from "./tools/set_current_context.js";
@@ -104,6 +105,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     createNamespaceSchema,
     createPodSchema,
     createCronJobSchema,
+    createServiceSchema,
     deletePodSchema,
     deleteDeploymentSchema,
     deleteNamespaceSchema,
@@ -504,6 +506,25 @@ server.setRequestHandler(
               name: string,
               namespace: string,
               data: Record<string, string>
+            }
+          );
+        }
+
+        case "create_service": {
+          return await createService(
+            k8sManager,
+            input as {
+              name: string;
+              namespace?: string;
+              type?: "ClusterIP" | "NodePort" | "LoadBalancer";
+              selector?: Record<string, string>;
+              ports: Array<{
+                port: number;
+                targetPort?: number;
+                protocol?: string;
+                name?: string;
+                nodePort?: number;
+              }>;
             }
           );
         }
