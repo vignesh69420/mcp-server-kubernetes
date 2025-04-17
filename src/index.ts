@@ -69,10 +69,14 @@ import {
 } from "./tools/describe_deployment.js";
 import { updateDeployment, updateDeploymentSchema } from "./tools/update_deployment.js";
 import { createConfigMap, CreateConfigMapSchema } from "./tools/create_configmap.js";
-import { createService, createServiceSchema } from "./tools/create_service.js";
 import { listContexts, listContextsSchema } from "./tools/list_contexts.js";
 import { getCurrentContext, getCurrentContextSchema } from "./tools/get_current_context.js";
 import { setCurrentContext, setCurrentContextSchema } from "./tools/set_current_context.js";
+import { createService, createServiceSchema } from "./tools/create_service.js";
+import { describeService, describeServiceSchema } from "./tools/describe_service.js";
+import { updateService, updateServiceSchema } from "./tools/update_service.js";
+import { deleteService, deleteServiceSchema } from "./tools/delete_service.js";
+
 
 // Check if non-destructive tools only mode is enabled
 const nonDestructiveTools = process.env.ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS === 'true';
@@ -110,9 +114,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     deletePodSchema,
     deleteDeploymentSchema,
     deleteNamespaceSchema,
+    deleteServiceSchema,
     describeCronJobSchema,
     describePodSchema,
     describeDeploymentSchema,
+    describeServiceSchema,
     explainResourceSchema,
     getEventsSchema,
     getJobLogsSchema,
@@ -137,6 +143,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     scaleDeploymentSchema,
     DeleteCronJobSchema,
     CreateConfigMapSchema,
+    updateServiceSchema,
   ];
 
   // Filter out destructive tools if ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS is set to 'true'
@@ -539,6 +546,46 @@ server.setRequestHandler(
                 name?: string;
                 nodePort?: number;
               }>;
+            }
+          );
+        }
+
+        case "update_service": {
+          return await updateService(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+              type?: "ClusterIP" | "NodePort" | "LoadBalancer";
+              selector?: Record<string, string>;
+              ports?: Array<{
+                port: number;
+                targetPort?: number;
+                protocol?: string;
+                name?: string;
+                nodePort?: number;
+              }>;
+            }
+          );
+        }
+
+        case "delete_service": {
+          return await deleteService(
+            k8sManager,
+            input as {
+              name: string;
+              namespace?: string;
+              ignoreNotFound?: boolean;
+            }
+          );
+        }
+
+        case "describe_service": {
+          return await describeService(
+            k8sManager,
+            input as {
+              name: string;
+              namespace?: string;
             }
           );
         }
