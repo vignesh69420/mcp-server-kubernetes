@@ -25,6 +25,36 @@ interface ServiceResponse {
   status: string;
 }
 
+// Interface for list services response
+interface ListServicesResponse {
+  services: Array<{
+    name: string;
+    namespace: string;
+    type: string;
+    clusterIP: string;
+    ports: Array<any>;
+    createdAt: string;
+  }>;
+}
+
+// Interface for update service response
+interface UpdateServiceResponse {
+  message: string;
+  service: {
+    name: string;
+    namespace: string;
+    type: string;
+    clusterIP: string;
+    ports: Array<any>;
+  };
+}
+
+// Interface for delete service response
+interface DeleteServiceResponse {
+  success: boolean;
+  status: string;
+}
+
 // Utility function: Sleep for a specified number of milliseconds
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,6 +76,36 @@ function parseServiceResponse(responseText: string): ServiceResponse | null {
     return JSON.parse(responseText);
   } catch (error) {
     console.error("Failed to parse service response:", error);
+    return null;
+  }
+}
+
+// Utility function: Parse list services response
+function parseListServicesResponse(responseText: string): ListServicesResponse | null {
+  try {
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error("Failed to parse list services response:", error);
+    return null;
+  }
+}
+
+// Utility function: Parse update service response
+function parseUpdateServiceResponse(responseText: string): UpdateServiceResponse | null {
+  try {
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error("Failed to parse update service response:", error);
+    return null;
+  }
+}
+
+// Utility function: Parse delete service response
+function parseDeleteServiceResponse(responseText: string): DeleteServiceResponse | null {
+  try {
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error("Failed to parse delete service response:", error);
     return null;
   }
 }
@@ -129,8 +189,8 @@ describe("test kubernetes service", () => {
     }
   });
 
-  // Test case: Verify creation of ClusterIP service
-  test("verify creation of ClusterIP service", async () => {
+  // Test case: Test complete lifecycle of a service (create, list, describe, update, delete)
+  test("complete service lifecycle", async () => {
     // Define test port configuration
     const testPorts = [
       {
@@ -147,7 +207,8 @@ describe("test kubernetes service", () => {
       tier: "backend"
     };
 
-    // Send request to create the service
+    // Step 1: Create a ClusterIP service
+    console.log("Creating service:", testServiceName);
     const serviceResponse = await client.request<any>(
       {
         method: "tools/call",
@@ -181,10 +242,208 @@ describe("test kubernetes service", () => {
     expect(parsedResponse?.type).toBe("ClusterIP");
     expect(parsedResponse?.status).toBe("created");
 
-    // Verify port configuration
-    expect(parsedResponse?.ports).toHaveLength(1);
-    expect(parsedResponse?.ports[0].port).toBe(80);
-    expect(parsedResponse?.ports[0].targetPort).toBe(8080);
+    // Step 2: List services in the namespace
+    console.log("Listing services in namespace:", testNamespace);
+    const listResponse = await client.request<any>(
+      {
+        method: "tools/call",
+        params: {
+          name: "list_services",
+          arguments: {
+            namespace: testNamespace,
+          },
+        },
+      },
+      ServiceResponseSchema,
+    );
+
+    // Parse the list response
+    const listResponseText = listResponse.content[0].text;
+    const parsedListResponse = parseListServicesResponse(listResponseText);
+
+    console.log("Services list response:", parsedListResponse);
+
+    // Verify that the service appears in the list
+    expect(parsedListResponse).not.toBeNull();
+    expect(parsedListResponse?.services).toBeInstanceOf(Array);
+    expect(parsedListResponse?.services.length).toBeGreaterThan(0);
+    
+    // Find our service in the list
+    const listedService = parsedListResponse?.services.find(svc => svc.name === testServiceName);
+    expect(listedService).toBeDefined();
+    expect(listedService?.namespace).toBe(testNamespace);
+    expect(listedService?.type).toBe("ClusterIP");
+
+    // Step 3: Describe the service
+    console.log("Describing service:", testServiceName);
+    const describeResponse = await client.request<any>(
+      {
+        method: "tools/call",
+        params: {
+          name: "describe_service",
+          arguments: {
+            name: testServiceName,
+            namespace: testNamespace,
+          },
+        },
+      },
+      ServiceResponseSchema,
+    );
+
+    // Parse the describe response
+    const describeResponseText = describeResponse.content[0].text;
+    const serviceDetails = JSON.parse(describeResponseText);
+
+    console.log("Service details:", serviceDetails);
+
+    // Verify service details
+    expect(serviceDetails).not.toBeNull();
+    expect(serviceDetails.metadata.name).toBe(testServiceName);
+    expect(serviceDetails.metadata.namespace).toBe(testNamespace);
+    expect(serviceDetails.spec.type).toBe("ClusterIP");
+    expect(serviceDetails.spec.selector).toEqual(testSelector);
+    expect(serviceDetails.spec.ports).toHaveLength(1);
+    expect(serviceDetails.spec.ports[0].port).toBe(80);
+    expect(serviceDetails.spec.ports[0].targetPort).toBe(8080);
+
+    // Step 4: Update the service
+    console.log("Updating service:", testServiceName);
+    const updatedPorts = [
+      {
+        port: 8080,
+        targetPort: 9090,
+        protocol: "TCP",
+        name: "http-updated"
+      }
+    ];
+
+    const updatedSelector = {
+      app: "test-app-updated",
+      tier: "frontend"
+    };
+
+    const updateResponse = await client.request<any>(
+      {
+        method: "tools/call",
+        params: {
+          name: "update_service",
+          arguments: {
+            name: testServiceName,
+            namespace: testNamespace,
+            ports: updatedPorts,
+            selector: updatedSelector
+          },
+        },
+      },
+      ServiceResponseSchema,
+    );
+
+    // Wait for the update to be processed
+    await sleep(2000);
+
+    // Parse the update response
+    const updateResponseText = updateResponse.content[0].text;
+    const parsedUpdateResponse = parseUpdateServiceResponse(updateResponseText);
+
+    console.log("Service update response:", parsedUpdateResponse);
+
+    // Verify the update was successful
+    expect(parsedUpdateResponse).not.toBeNull();
+    expect(parsedUpdateResponse?.message).toBe("Service updated successfully");
+    expect(parsedUpdateResponse?.service.name).toBe(testServiceName);
+    
+    // Verify updated properties
+    expect(parsedUpdateResponse?.service.ports).toHaveLength(1);
+    expect(parsedUpdateResponse?.service.ports[0].port).toBe(8080);
+    expect(parsedUpdateResponse?.service.ports[0].targetPort).toBe(9090);
+
+    // Step 5: Describe the service again to verify updates
+    console.log("Describing updated service:", testServiceName);
+    const describeUpdatedResponse = await client.request<any>(
+      {
+        method: "tools/call",
+        params: {
+          name: "describe_service",
+          arguments: {
+            name: testServiceName,
+            namespace: testNamespace,
+          },
+        },
+      },
+      ServiceResponseSchema,
+    );
+
+    // Parse the describe response
+    const describeUpdatedResponseText = describeUpdatedResponse.content[0].text;
+    const updatedServiceDetails = JSON.parse(describeUpdatedResponseText);
+
+    console.log("Updated service details:", updatedServiceDetails);
+
+    // Verify service details reflect the updates
+    expect(updatedServiceDetails.spec.selector).toEqual(updatedSelector);
+    expect(updatedServiceDetails.spec.ports).toHaveLength(1);
+    expect(updatedServiceDetails.spec.ports[0].port).toBe(8080);
+    expect(updatedServiceDetails.spec.ports[0].targetPort).toBe(9090);
+    expect(updatedServiceDetails.spec.ports[0].name).toBe("http-updated");
+
+    // Step 6: Delete the service
+    console.log("Deleting service:", testServiceName);
+    const deleteResponse = await client.request<any>(
+      {
+        method: "tools/call",
+        params: {
+          name: "delete_service",
+          arguments: {
+            name: testServiceName,
+            namespace: testNamespace,
+          },
+        },
+      },
+      ServiceResponseSchema,
+    );
+
+    // Wait for the delete to be processed
+    await sleep(2000);
+
+    // Parse the delete response
+    const deleteResponseText = deleteResponse.content[0].text;
+    const parsedDeleteResponse = parseDeleteServiceResponse(deleteResponseText);
+
+    console.log("Service deletion response:", parsedDeleteResponse);
+
+    // Verify the delete was successful
+    expect(parsedDeleteResponse).not.toBeNull();
+    expect(parsedDeleteResponse?.success).toBe(true);
+    expect(parsedDeleteResponse?.status).toBe("deleted");
+
+    // Step 7: List services again to verify deletion
+    console.log("Listing services after deletion:");
+    const listAfterDeleteResponse = await client.request<any>(
+      {
+        method: "tools/call",
+        params: {
+          name: "list_services",
+          arguments: {
+            namespace: testNamespace,
+          },
+        },
+      },
+      ServiceResponseSchema,
+    );
+
+    // Parse the list response
+    const listAfterDeleteResponseText = listAfterDeleteResponse.content[0].text;
+    const parsedListAfterDeleteResponse = parseListServicesResponse(listAfterDeleteResponseText);
+
+    console.log("Services list after deletion:", parsedListAfterDeleteResponse);
+
+    // Verify the service is no longer in the list
+    expect(parsedListAfterDeleteResponse).not.toBeNull();
+    expect(parsedListAfterDeleteResponse?.services).toBeInstanceOf(Array);
+    
+    // Service should not be found
+    const deletedService = parsedListAfterDeleteResponse?.services.find(svc => svc.name === testServiceName);
+    expect(deletedService).toBeUndefined();
   });
 
   // Test case: Verify creation of NodePort service
