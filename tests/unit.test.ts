@@ -187,6 +187,7 @@ describe("kubernetes server operations", () => {
     }
   });
 
+  // Describe a non-existent node
   test("describe non-existent node", async () => {
     const nonExistentNodeName = "non-existent-node-" + Date.now();
     console.log(`Attempting to describe non-existent node ${nonExistentNodeName}...`);
