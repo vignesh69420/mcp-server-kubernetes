@@ -1,3 +1,4 @@
+// Import necessary modules and dependencies
 import { expect, test, describe, beforeEach, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -6,29 +7,34 @@ import {
   CreateConfigMapResponseSchema,
   GetConfigMapResponseSchema,
   UpdateConfigMapResponseSchema,
-  DeleteConfigMapResponseSchema,
+  DeleteConfigMapResponseSchema
 } from "../src/models/response-schemas.js";
 import { KubernetesManager } from "../src/types";
+
+// Utility function to introduce a delay
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Utility function to generate a random ID
 function generateRandomId(): string {
   return Math.random().toString(36).substring(2, 10);
 }
 
+// Utility function to generate a random SHA-like string
 function generateRandomSHA(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
+// Test suite for Kubernetes ConfigMap operations
 describe("test kubernetes configmap", () => {
   let transport: StdioClientTransport;
   let client: Client;
-  const NAMESPACE_PREFIX = "test-configmap";
+  const NAMESPACE_PREFIX = "test-configmap"; // Prefix for test namespaces
   let testNamespace: string;
+  const testName = `test-configmap-${generateRandomSHA()}`; // Unique name for the ConfigMap
 
-  const testName = `test-configmap-${generateRandomSHA()}`;
-
+  // Setup before each test
   beforeEach(async () => {
     try {
       transport = new StdioClientTransport({
@@ -48,15 +54,14 @@ describe("test kubernetes configmap", () => {
       );
 
       await client.connect(transport);
-      // Wait for connection to be established
-      await sleep(1000);
+      await sleep(1000); // Wait for the client to connect
 
-      // Create a unique test namespace for test isolation
       testNamespace = `${NAMESPACE_PREFIX}-${generateRandomId()}`;
       console.log(`Creating test namespace: ${testNamespace}`);
 
       console.log("About to create namespace:", testNamespace);
       try {
+        // Create a test namespace
         const namespaceResponse = await client.request({
           method: "tools/call",
           params: {
@@ -65,41 +70,41 @@ describe("test kubernetes configmap", () => {
               name: testNamespace,
             },
           },
-        }, GenericResponseSchema);
+        }, CreateNamespaceResponseSchema);
         console.log("Namespace creation response:", JSON.stringify(namespaceResponse));
       } catch (error) {
         console.error("Error creating namespace:", error);
         throw error;
       }
 
-      // Wait for namespace to be fully created
-      await sleep(2000);
+      await sleep(2000); // Wait for the namespace to be created
     } catch (error: any) {
       console.error("Error in beforeEach:", error);
       throw error;
     }
   });
 
+  // Cleanup after each test
   afterEach(async () => {
     try {
-      // Clean up namespace using direct API call
       console.log(`Cleaning up test namespace: ${testNamespace}`);
       const k8sManager = new KubernetesManager();
-      await k8sManager.getCoreApi().deleteNamespace(testNamespace);
-
-      // Close client connection
-      await transport.close();
-      await sleep(1000);
+      await k8sManager.getCoreApi().deleteNamespace(testNamespace); // Delete the test namespace
+      await transport.close(); // Close the transport
+      await sleep(1000); // Wait for cleanup to complete
     } catch (e) {
       console.error("Error during cleanup:", e);
     }
   });
 
+  // Test case: Verify creation of a ConfigMap
   test("verify creation of configmap", async () => {
     const testdata = {
       key1: "hello",
       key2: "world",
     };
+
+    // Create a ConfigMap
     const configmap_response = client.request({
       method: "tools/call",
       params: {
@@ -110,23 +115,26 @@ describe("test kubernetes configmap", () => {
           data: testdata,
         },
       },
-    }, GenericResponseSchema);
+    }, CreateConfigMapResponseSchema);
 
     await sleep(2000);
     const result = await configmap_response as any;
-    console.log(result.result.content[0]);
-    expect(result.result.content[0].success).toBe(true);
-    expect(result.result.content[0].message).toContain(
+    console.log(result.content[0]);
+    // Validate the response
+    expect(result.content[0].success).toBe(true);
+    expect(result.content[0].message).toContain(
       `Created ConfigMap ${testName} in namespace ${testNamespace}`
     );
   });
 
+  // Test case: Verify retrieval of a ConfigMap
   test("verify get of configmap", async () => {
     const testdata = {
       key1: "foo",
       key2: "bar",
     };
-    // Create first
+
+    // Create a ConfigMap
     await client.request({
       method: "tools/call",
       params: {
@@ -137,10 +145,10 @@ describe("test kubernetes configmap", () => {
           data: testdata,
         },
       },
-    }, GenericResponseSchema);
-    await sleep(2000);
+    }, CreateConfigMapResponseSchema);
+    await sleep(2000); // Wait for the ConfigMap to be created
 
-    // Get
+    // Retrieve the ConfigMap
     const get_response = await client.request({
       method: "tools/call",
       params: {
@@ -150,20 +158,28 @@ describe("test kubernetes configmap", () => {
           namespace: testNamespace,
         },
       },
-    }, GenericResponseSchema) as any;
-    expect(get_response.result.content[0].success).toBe(true);
-    expect(get_response.result.content[0].message).toContain(
+    }, GetConfigMapResponseSchema);
+
+    await sleep(1000);
+    const result = await get_response as any;
+    console.log("Get configmap response:", JSON.stringify(result));
+    // Validate the retrieved data
+    expect(result.content[0].success).toBe(true);
+    expect( result.content[0].message).toContain(
       `Fetched ConfigMap ${testName} in namespace ${testNamespace}`
-    );
-    expect(get_response.result.content[0].data).toEqual(testdata);
+    
+     );
+    expect( result.content[0].data).toEqual(testdata);
   });
 
+  // Test case: Verify update of a ConfigMap
   test("verify update of configmap", async () => {
     const testdata = {
       key1: "init",
       key2: "val",
     };
-    // Create first
+
+    // Create a ConfigMap
     await client.request({
       method: "tools/call",
       params: {
@@ -174,15 +190,16 @@ describe("test kubernetes configmap", () => {
           data: testdata,
         },
       },
-    }, GenericResponseSchema);
-    await sleep(2000);
+    }, CreateConfigMapResponseSchema);
+    await sleep(2000); // Wait for the ConfigMap to be created
 
-    // Update
     const updatedData = {
       key1: "updated",
       key2: "val",
       key3: "new",
     };
+
+    // Update the ConfigMap
     const update_response = await client.request({
       method: "tools/call",
       params: {
@@ -193,13 +210,17 @@ describe("test kubernetes configmap", () => {
           data: updatedData,
         },
       },
-    }, GenericResponseSchema) as any;
-    expect(update_response.result.content[0].success).toBe(true);
-    expect(update_response.result.content[0].message).toContain(
+    }, UpdateConfigMapResponseSchema);
+
+    const result = await update_response as any;
+    console.log("Get configmap response:", JSON.stringify(result));
+    // Validate the update response
+    expect(result.content[0].success).toBe(true);
+    expect(result.content[0].message).toContain(
       `Updated ConfigMap ${testName} in namespace ${testNamespace}`
     );
 
-    // Get to verify update
+    // Retrieve the updated ConfigMap
     const get_response = await client.request({
       method: "tools/call",
       params: {
@@ -209,16 +230,19 @@ describe("test kubernetes configmap", () => {
           namespace: testNamespace,
         },
       },
-    }, GenericResponseSchema) as any;
-    expect(get_response.result.content[0].success).toBe(true);
-    expect(get_response.result.content[0].data).toEqual(updatedData);
+    }, GetConfigMapResponseSchema) as any;
+    // Validate the updated data
+    expect(get_response.content[0].success).toBe(true);
+    expect(get_response.content[0].data).toEqual(updatedData);
   });
 
+  // Test case: Verify deletion of a ConfigMap
   test("verify delete of configmap", async () => {
     const testdata = {
       key1: "to-be-deleted",
     };
-    // Create first
+
+    // Create a ConfigMap
     await client.request({
       method: "tools/call",
       params: {
@@ -229,10 +253,10 @@ describe("test kubernetes configmap", () => {
           data: testdata,
         },
       },
-    }, GenericResponseSchema);
-    await sleep(2000);
+    }, CreateConfigMapResponseSchema);
+    await sleep(2000); // Wait for the ConfigMap to be created
 
-    // Delete
+    // Delete the ConfigMap
     const delete_response = await client.request({
       method: "tools/call",
       params: {
@@ -242,13 +266,14 @@ describe("test kubernetes configmap", () => {
           namespace: testNamespace,
         },
       },
-    }, GenericResponseSchema) as any;
-    expect(delete_response.result.content[0].success).toBe(true);
-    expect(delete_response.result.content[0].message).toContain(
+    }, DeleteConfigMapResponseSchema);
+    // Validate the delete response
+    expect(delete_response.content[0].success).toBe(true);
+    expect(delete_response.content[0].message).toContain(
       `Deleted ConfigMap ${testName} in namespace ${testNamespace}`
     );
 
-    // Try to get, should fail
+    // Attempt to retrieve the deleted ConfigMap
     const get_response = await client.request({
       method: "tools/call",
       params: {
@@ -258,7 +283,8 @@ describe("test kubernetes configmap", () => {
           namespace: testNamespace,
         },
       },
-    }, GenericResponseSchema) as any;
-    expect(get_response.result.content[0].success).toBe(false);
+    }, GetConfigMapResponseSchema);
+    // Validate that the ConfigMap no longer exists
+    expect(get_response.content[0].success).toBe(false);
   });
 });
