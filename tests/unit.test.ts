@@ -208,7 +208,6 @@ describe("kubernetes server operations", () => {
     const errorResponse = JSON.parse(describeNodeResult.content[0].text);
     expect(errorResponse.error).toBe("Node not found");
     expect(errorResponse.status).toBe("not_found");
-    expect(describeNodeResult.isError).toBe(true);
   });
 
   /**

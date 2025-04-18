@@ -34,7 +34,6 @@ export async function describeNode(k8sManager: KubernetesManager, input: {
                         ),
                     },
                 ],
-                isError: true,
             };
         }
 
@@ -76,7 +75,6 @@ export async function describeNode(k8sManager: KubernetesManager, input: {
                     text: JSON.stringify(nodeDetails, null, 2),
                 },
             ],
-            isError: false,
         };
     } catch (error: any) {
         if (error.response?.statusCode === 404) {
@@ -94,7 +92,6 @@ export async function describeNode(k8sManager: KubernetesManager, input: {
                         ),
                     },
                 ],
-                isError: true,
             };
         }
         throw new McpError(
