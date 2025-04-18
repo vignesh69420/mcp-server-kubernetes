@@ -12,6 +12,7 @@ import { listCronJobs, listCronJobsSchema } from "./tools/list_cronjobs.js";
 import { describeCronJob, describeCronJobSchema } from "./tools/describe_cronjob.js";
 import { listJobs, listJobsSchema } from "./tools/list_jobs.js";
 import { getJobLogs, getJobLogsSchema } from "./tools/get_job_logs.js";
+import { describeNode, describeNodeSchema } from "./tools/describe_node.js";
 import {
   installHelmChart,
   installHelmChartSchema,
@@ -112,6 +113,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     deleteNamespaceSchema,
     describeCronJobSchema,
     describePodSchema,
+    describeNodeSchema,
     describeDeploymentSchema,
     explainResourceSchema,
     getEventsSchema,
@@ -232,6 +234,16 @@ server.setRequestHandler(
 
         case "describe_pod": {
           return await describePod(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+            }
+          );
+        }
+
+        case "describe_node": {
+          return await describeNode(
             k8sManager,
             input as {
               name: string;
