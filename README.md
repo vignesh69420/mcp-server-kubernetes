@@ -67,6 +67,7 @@ npx mcp-chat --config "%APPDATA%\Claude\claude_desktop_config.json"
 
 - [x] Connect to a Kubernetes cluster
 - [x] List all pods, services, deployments, nodes
+- [x] Describe nodes
 - [x] Create, describe, delete a pod
 - [x] List all namespaces, create a namespace
 - [x] Create custom pod & deployment configs, update deployment replicas
