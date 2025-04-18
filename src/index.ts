@@ -242,7 +242,7 @@ server.setRequestHandler(
         }
 
         case "create_cronjob": {
-          return { result: (await createCronJob(
+          return await createCronJob(
             k8sManager,
             input as {
               name: string;
@@ -252,17 +252,17 @@ server.setRequestHandler(
               command?: string[];
               suspend?: boolean;
             }
-          )).content };
+          );
         }
 
         case "delete_cronjob": {
-          return { result: (await DeleteCronJob(
+          return await DeleteCronJob(
             k8sManager,
             input as {
               name: string;
               namespace: string;
             }
-          )).content };
+          );
         }
         case "delete_pod": {
           return { result: await deletePod(
