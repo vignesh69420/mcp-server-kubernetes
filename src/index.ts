@@ -88,6 +88,9 @@ import {
   createConfigMap,
   CreateConfigMapSchema,
 } from "./tools/create_configmap.js";
+import { getConfigMap, GetConfigMapSchema } from "./tools/get_configmap.js";
+import { updateConfigMap, UpdateConfigMapSchema } from "./tools/update_configmap.js";
+import { deleteConfigMap, DeleteConfigMapSchema } from "./tools/delete_configmap.js";
 import { listContexts, listContextsSchema } from "./tools/list_contexts.js";
 import {
   getCurrentContext,
@@ -212,16 +215,16 @@ server.setRequestHandler(
         }
 
         case "create_namespace": {
-          return await createNamespace(
+          return { result: await createNamespace(
             k8sManager,
             input as {
               name: string;
             }
-          );
+          ) };
         }
 
         case "create_pod": {
-          return await createPod(
+          return { result: await createPod(
             k8sManager,
             input as {
               name: string;
@@ -229,11 +232,11 @@ server.setRequestHandler(
               template: string;
               command?: string[];
             }
-          );
+          ) };
         }
 
         case "create_cronjob": {
-          return await createCronJob(
+          return { result: (await createCronJob(
             k8sManager,
             input as {
               name: string;
@@ -243,72 +246,72 @@ server.setRequestHandler(
               command?: string[];
               suspend?: boolean;
             }
-          );
+          )).content };
         }
 
         case "delete_cronjob": {
-          return await DeleteCronJob(
+          return { result: (await DeleteCronJob(
             k8sManager,
             input as {
               name: string;
               namespace: string;
             }
-          );
+          )).content };
         }
         case "delete_pod": {
-          return await deletePod(
+          return { result: await deletePod(
             k8sManager,
             input as {
               name: string;
               namespace: string;
               ignoreNotFound?: boolean;
             }
-          );
+          ) };
         }
 
         case "describe_pod": {
-          return await describePod(
+          return { result: (await describePod(
             k8sManager,
             input as {
               name: string;
               namespace: string;
             }
-          );
+          )).content };
         }
 
         case "describe_node": {
-          return await describeNode(
+          return { result: (await describeNode(
             k8sManager,
             input as {
               name: string;
               namespace: string;
             }
-          );
+          )).content };
         }
 
         case "explain_resource": {
-          return await explainResource(
+          return { result: (await explainResource(
             input as {
               resource: string;
               apiVersion?: string;
               recursive?: boolean;
               output?: "plaintext" | "plaintext-openapiv2";
             }
-          );
+          )).content };
         }
 
         case "get_events": {
-          return await getEvents(
+          return { result: (await getEvents(
             k8sManager,
             input as {
               namespace?: string;
               fieldSelector?: string;
             }
-          );
+          )).content };
         }
 
         case "get_logs": {
-          return await getLogs(
+          return { result: (await getLogs(
             k8sManager,
             input as {
               resourceType: string;
@@ -322,11 +325,11 @@ server.setRequestHandler(
               pretty?: boolean;
               follow?: false;
             }
-          );
+          )).content };
         }
 
         case "install_helm_chart": {
-          return await installHelmChart(
+          return { result: (await installHelmChart(
             input as {
               name: string;
               chart: string;
@@ -334,25 +337,25 @@ server.setRequestHandler(
               namespace: string;
               values?: Record<string, any>;
             }
-          );
+          )).content };
         }
 
         case "list_api_resources": {
-          return await listApiResources(
+          return { result: (await listApiResources(
             input as {
               apiGroup?: string;
               namespaced?: boolean;
               verbs?: string[];
               output?: "wide" | "name" | "no-headers";
             }
-          );
+          )).content };
         }
 
         case "list_deployments": {
-          return await listDeployments(
+          return { result: (await listDeployments(
             k8sManager,
             input as { namespace?: string }
-          );
+          )).content };
         }
 
         case "list_namespaces": {
@@ -375,67 +378,67 @@ server.setRequestHandler(
         }
 
         case "list_nodes": {
-          return await listNodes(k8sManager);
+          return { result: (await listNodes(k8sManager)).content };
         }
 
         case "list_pods": {
-          return await listPods(k8sManager, input as { namespace?: string });
+          return { result: (await listPods(k8sManager, input as { namespace?: string })).content };
         }
 
         case "list_services": {
-          return await listServices(
+          return { result: (await listServices(
             k8sManager,
             input as { namespace?: string }
-          );
+          )).content };
         }
 
         case "list_cronjobs": {
-          return await listCronJobs(
+          return { result: (await listCronJobs(
             k8sManager,
             input as { namespace?: string }
-          );
+          )).content };
         }
 
         case "list_contexts": {
-          return await listContexts(
+          return { result: (await listContexts(
             k8sManager,
             input as { showCurrent?: boolean }
-          );
+          )).content };
         }
 
         case "get_current_context": {
-          return await getCurrentContext(
+          return { result: (await getCurrentContext(
             k8sManager,
             input as { detailed?: boolean }
-          );
+          )).content };
         }
 
         case "set_current_context": {
-          return await setCurrentContext(k8sManager, input as { name: string });
+          return { result: (await setCurrentContext(k8sManager, input as { name: string })).content };
         }
 
         case "describe_cronjob": {
-          return await describeCronJob(
+          return { result: (await describeCronJob(
             k8sManager,
             input as {
               name: string;
               namespace: string;
             }
-          );
+          )).content };
         }
 
         case "list_jobs": {
-          return await listJobs(
+          return { result: (await listJobs(
             k8sManager,
             input as {
               namespace: string;
               cronJobName?: string;
             }
-          );
+          )).content };
         }
 
         case "get_job_logs": {
-          return await getJobLogs(
+          return { result: (await getJobLogs(
             k8sManager,
             input as {
               name: string;
@@ -443,20 +446,20 @@ server.setRequestHandler(
               tail?: number;
               timestamps?: boolean;
             }
-          );
+          )).content };
         }
 
         case "uninstall_helm_chart": {
-          return await uninstallHelmChart(
+          return { result: (await uninstallHelmChart(
             input as {
               name: string;
               namespace: string;
             }
-          );
+          )).content };
         }
 
         case "upgrade_helm_chart": {
-          return await upgradeHelmChart(
+          return { result: (await upgradeHelmChart(
             input as {
               name: string;
               chart: string;
@@ -464,11 +467,11 @@ server.setRequestHandler(
               namespace: string;
               values?: Record<string, any>;
             }
-          );
+          )).content };
         }
 
         case "port_forward": {
-          return await startPortForward(
+          return { result: (await startPortForward(
             k8sManager,
             input as {
               resourceType: string;
@@ -476,41 +479,41 @@ server.setRequestHandler(
               localPort: number;
               targetPort: number;
             }
-          );
+          )).content };
         }
 
         case "stop_port_forward": {
-          return await stopPortForward(
+          return { result: (await stopPortForward(
             k8sManager,
             input as {
               id: string;
             }
-          );
+          )).content };
         }
 
         case "delete_namespace": {
-          return await deleteNamespace(
+          return { result: await deleteNamespace(
             k8sManager,
             input as {
               name: string;
               ignoreNotFound?: boolean;
             }
-          );
+          ) };
         }
 
         case "delete_deployment": {
-          return await deleteDeployment(
+          return { result: (await deleteDeployment(
             k8sManager,
             input as {
               name: string;
               namespace: string;
               ignoreNotFound?: boolean;
             }
-          );
+          )).content };
         }
 
         case "create_deployment": {
-          return await createDeployment(
+          return { result: (await createDeployment(
             k8sManager,
             input as {
               name: string;
@@ -520,10 +523,10 @@ server.setRequestHandler(
               ports?: number[];
               customConfig?: any;
             }
-          );
+          )).content };
         }
         case "update_deployment": {
-          return await updateDeployment(
+          return { result: (await updateDeployment(
             k8sManager,
             input as {
               name: string;
@@ -533,42 +536,70 @@ server.setRequestHandler(
               replicas?: number;
               customConfig?: any;
             }
-          );
+          )).content };
         }
         case "describe_deployment": {
-          return await describeDeployment(
+          return { result: (await describeDeployment(
             k8sManager,
             input as {
               name: string;
               namespace: string;
             }
-          );
+          )).content };
         }
 
         case "scale_deployment": {
-          return await scaleDeployment(
+          return { result: (await scaleDeployment(
             k8sManager,
             input as {
               name: string;
               namespace: string;
               replicas: number;
             }
-          );
+          )).content };
         }
 
         case "create_configmap": {
-          return await createConfigMap(
+          return { result: await createConfigMap(
             k8sManager,
             input as {
               name: string;
               namespace: string;
               data: Record<string, string>;
             }
-          );
+          ) };
+        }
+        case "get_configmap": {
+          return { result: await getConfigMap(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+            }
+          ) };
+        }
+        case "update_configmap": {
+          return { result: await updateConfigMap(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+              data: Record<string, string>;
+            }
+          ) };
+        }
+        case "delete_configmap": {
+          return { result: await deleteConfigMap(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+            }
+          ) };
         }
 
         case "create_service": {
-          return await createService(
+          return { result: (await createService(
             k8sManager,
             input as {
               name: string;
@@ -583,11 +614,11 @@ server.setRequestHandler(
                 nodePort?: number;
               }>;
             }
-          );
+          )).content };
         }
 
         case "update_service": {
-          return await updateService(
+          return { result: (await updateService(
             k8sManager,
             input as {
               name: string;
@@ -602,28 +633,28 @@ server.setRequestHandler(
                 nodePort?: number;
               }>;
             }
-          );
+          )).content };
         }
 
         case "delete_service": {
-          return await deleteService(
+          return { result: (await deleteService(
             k8sManager,
             input as {
               name: string;
               namespace?: string;
               ignoreNotFound?: boolean;
             }
-          );
+          )).content };
         }
 
         case "describe_service": {
-          return await describeService(
+          return { result: (await describeService(
             k8sManager,
             input as {
               name: string;
               namespace?: string;
             }
-          );
+          )).content };
         }
 
         default:
