@@ -108,9 +108,11 @@ import {
 import { updateService, updateServiceSchema } from "./tools/update_service.js";
 import { deleteService, deleteServiceSchema } from "./tools/delete_service.js";
 
+// Check if non-destructive tools only mode is enabled
 const nonDestructiveTools =
   process.env.ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS === "true";
 
+// Define destructive tools (delete and uninstall operations)
 const destructiveTools = [
   deletePodSchema,
   deleteServiceSchema,
@@ -121,6 +123,7 @@ const destructiveTools = [
   cleanupSchema, // Cleanup is also destructive as it deletes resources
 ];
 
+// Get all available tools
 const allTools = [
   cleanupSchema,
   createDeploymentSchema,
