@@ -88,6 +88,9 @@ import {
   createConfigMap,
   CreateConfigMapSchema,
 } from "./tools/create_configmap.js";
+import { getConfigMap, GetConfigMapSchema } from "./tools/get_configmap.js";
+import { updateConfigMap, UpdateConfigMapSchema } from "./tools/update_configmap.js";
+import { deleteConfigMap, DeleteConfigMapSchema } from "./tools/delete_configmap.js";
 import { listContexts, listContextsSchema } from "./tools/list_contexts.js";
 import {
   getCurrentContext,
@@ -174,6 +177,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     DeleteCronJobSchema,
     CreateConfigMapSchema,
     updateServiceSchema,
+    GetConfigMapSchema,
+    UpdateConfigMapSchema,
+    DeleteConfigMapSchema,
   ];
 
   // Filter out destructive tools if ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS is set to 'true'
@@ -566,6 +572,37 @@ server.setRequestHandler(
               name: string;
               namespace: string;
               data: Record<string, string>;
+            }
+          );
+        }
+
+        case "get_configmap": {
+          return  await getConfigMap(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+            }
+          );
+        }
+
+        case "update_configmap": {
+          return await updateConfigMap(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
+              data: Record<string, string>;
+            }
+          );
+        }
+
+        case "delete_configmap": {
+          return await deleteConfigMap(
+            k8sManager,
+            input as {
+              name: string;
+              namespace: string;
             }
           );
         }
