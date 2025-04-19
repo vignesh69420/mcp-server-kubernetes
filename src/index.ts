@@ -176,6 +176,7 @@ const server = new Server(
 
 // Tools handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
+
   // Filter out destructive tools if ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS is set to 'true'
   const tools = nonDestructiveTools
     ? allTools.filter(
