@@ -86,6 +86,17 @@ Assuming your image name is flux159/mcp-server-kubernetes and you need to map po
 ```shell
 docker  run --rm -it -p 3001:3001 -e ENABLE_UNSAFE_SSE_TRANSPORT=1  -e PORT=3001   -v ~/.kube/config:/root/.kube/config   flux159/mcp-server-kubernetes
 ```
+mcp config
+```shell
+{
+  "mcpServers": {
+    "mcp-k8s": {
+      "url": "http://localhost:3001/sse",
+      "args": []
+    }
+  }
+}
+```
 
 ### Why is SSE Transport Unsafe?
 
