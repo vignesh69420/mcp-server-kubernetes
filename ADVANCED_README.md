@@ -90,7 +90,7 @@ mcp config
 ```shell
 {
   "mcpServers": {
-    "mcp-k8s": {
+    "mcp-server-kubernetes": {
       "url": "http://localhost:3001/sse",
       "args": []
     }
