@@ -84,8 +84,11 @@ Complete Example
 Assuming your image name is flux159/mcp-server-kubernetes and you need to map ports and set environment parameters, you can run:
 
 ```shell
-docker  run --rm -it -p 3001:3001 -e ENABLE_UNSAFE_SSE_TRANSPORT=1  -e PORT=3001   -v ~/.kube/config:/root/.kube/config   flux159/mcp-server-kubernetes
+docker  run --rm -it -p 3001:3001 -e ENABLE_UNSAFE_SSE_TRANSPORT=1  -e PORT=3001   -v ~/.kube/config:/home/appuser/.kube/config   flux159/mcp-server-kubernetes
 ```
+⚠️ Key safety considerations
+When deploying SSE mode using Docker, due to the insecure SSE transport protocol and sensitive configuration file mounting, strict security constraints must be implemented in the production environment
+
 mcp config
 ```shell
 {
