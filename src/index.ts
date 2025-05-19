@@ -37,10 +37,7 @@ import {
   stopPortForward,
   StopPortForwardSchema,
 } from "./tools/port_forward.js";
-import {
-  scaleDeployment,
-  scaleDeploymentSchema,
-} from "./tools/scale_deployment.js";
+import { kubectlScale, kubectlScaleSchema } from "./tools/kubectl-scale.js";
 import { kubectlContext, kubectlContextSchema } from "./tools/kubectl-context.js";
 import { kubectlGet, kubectlGetSchema } from "./tools/kubectl-get.js";
 import { kubectlDescribe, kubectlDescribeSchema } from "./tools/kubectl-describe.js";
@@ -76,7 +73,7 @@ const allTools = [
   kubectlLogsSchema,
   
   // Special operations
-  scaleDeploymentSchema,
+  kubectlScaleSchema,
   
   // Kubernetes context management
   kubectlContextSchema,
@@ -339,13 +336,28 @@ server.setRequestHandler(
           );
         }
 
+        // Handle backward compatibility for the old scale_deployment command
         case "scale_deployment": {
-          return await scaleDeployment(
+          console.warn("scale_deployment is deprecated, use kubectl_scale instead");
+          return await kubectlScale(
             k8sManager,
             input as {
               name: string;
               namespace: string;
               replicas: number;
+              resourceType: "deployment"
+            }
+          );
+        }
+
+        case "kubectl_scale": {
+          return await kubectlScale(
+            k8sManager,
+            input as {
+              name: string;
+              namespace?: string;
+              replicas: number;
+              resourceType?: string;
             }
           );
         }
