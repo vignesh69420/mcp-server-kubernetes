@@ -27,8 +27,6 @@ import {
 import * as k8s from "@kubernetes/client-node";
 import { KubernetesManager } from "./types.js";
 import { serverConfig } from "./config/server-config.js";
-// Removed createDeploymentSchema import - using kubectl_create instead
-// Removed listNamespacesSchema import - using kubectl_list instead
 import { cleanupSchema } from "./config/cleanup-config.js";
 import { startSSEServer } from "./utils/sse.js";
 import {
@@ -77,9 +75,6 @@ const allTools = [
   kubectlScaleSchema,
   kubectlPatchSchema,
   kubectlRolloutSchema,
-  
-  // Special operations
-  // Remove the duplicate kubectlScaleSchema here
   
   // Kubernetes context management
   kubectlContextSchema,
@@ -379,20 +374,6 @@ server.setRequestHandler(
             k8sManager,
             input as {
               id: string;
-            }
-          );
-        }
-
-        // Handle backward compatibility for the old scale_deployment command
-        case "scale_deployment": {
-          console.warn("scale_deployment is deprecated, use kubectl_scale instead");
-          return await kubectlScale(
-            k8sManager,
-            input as {
-              name: string;
-              namespace: string;
-              replicas: number;
-              resourceType: "deployment"
             }
           );
         }
