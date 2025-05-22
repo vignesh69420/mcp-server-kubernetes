@@ -57,6 +57,7 @@ const destructiveTools = [
   kubectlDeleteSchema, // This replaces all individual delete operations 
   uninstallHelmChartSchema,
   cleanupSchema, // Cleanup is also destructive as it deletes resources
+  kubectlGenericSchema, // Generic kubectl command can perform destructive operations
 ];
 
 // Get all available tools
